@@ -1,5 +1,6 @@
 .App {
   text-align: center;
+  background-color: #f0f2f5; /* 全体の背景色をFacebookっぽく */
 }
 
 .App-logo {
@@ -14,18 +15,19 @@
 }
 
 .App-header {
-  background-color: #282c34;
+  background-color: #1877f2; /* Facebookの青 */
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   font-size: calc(10px + 2vmin);
-  color: white;
+  color: white; /* 白字で読みやすく */
 }
 
 .App-link {
-  color: #61dafb;
+  color: #ffffff; /* 白文字でシンプルに */
+  text-decoration: underline;
 }
 
 @keyframes App-logo-spin {
