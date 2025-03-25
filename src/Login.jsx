@@ -116,7 +116,7 @@ function Login({ setUserRole }) {
         onClick={handleLogin}
         style={{ padding: "10px 20px", marginBottom: "10px" }}
       >
-        {isNewUser ? "登録する✨" : "ログインする✨"}
+        {isNewUser ? "登録する✨" : "ログインする"}
       </button>
 
       <div>
