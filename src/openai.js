@@ -1,4 +1,5 @@
-export async function sendToOpenAI(messages) {
+// openai.js
+export async function sendToOpenAI(messages, systemPrompt) {
   const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
 
   try {
@@ -11,10 +12,7 @@ export async function sendToOpenAI(messages) {
       body: JSON.stringify({
         model: "gpt-4",
         messages: [
-          {
-            role: "system",
-            content: `あなたはYOSUKEという名前の分身AIです。社員の相談に対して、落ち着いていて思慮深く、相手が自然に気づきを得られるような問いかけをするスタイルで話します。肯定をベースに、安心感を持ってもらえるような対応をしてください。`,
-          },
+          { role: "system", content: systemPrompt }, // ←ここが変わる！
           ...messages,
         ],
       }),
