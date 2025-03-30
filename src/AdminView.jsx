@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
-import { fetchMessages } from "./firebase";
+import { fetchMessages, saveMessageToFirestore } from "./firebase";
+import { sendToOpenAI } from "./openai";
 import app from "./firebaseConfig";
+import "./AdminView.css";
 
 const db = getFirestore(app);
 
@@ -9,6 +11,8 @@ function AdminView() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
+  const [input, setInput] = useState("");
+  const [chatLog, setChatLog] = useState([]);
 
   useEffect(() => {
     const load = async () => {
@@ -22,7 +26,7 @@ function AdminView() {
         if (data.role === "employee") {
           employeeUsers.push({
             name: data.name || data.email,
-            email: data.email
+            email: data.email,
           });
         }
       });
@@ -31,84 +35,128 @@ function AdminView() {
     load();
   }, []);
 
+  const handleAdminSend = async () => {
+    if (!input.trim()) return;
+
+    const newMessage = {
+      sender: "佐藤社長",
+      receiver: "sato_ai",
+      text: input,
+      timestamp: new Date().toISOString(),
+    };
+
+    const updatedLog = [...chatLog, newMessage];
+    setChatLog(updatedLog);
+    setInput("");
+
+    await saveMessageToFirestore({
+      employeeId: "admin-sato",
+      sender: newMessage.sender,
+      receiver: newMessage.receiver,
+      text: newMessage.text,
+      timestamp: newMessage.timestamp,
+    });
+
+    const openAIMessages = updatedLog.map((msg) => ({
+      role: msg.sender === "佐藤社長" ? "user" : "assistant",
+      content: msg.text,
+    }));
+
+    const systemPrompt = `あなたはsato_aiという名前の分身AIです。社長の意思決定を支えるパートナーとして、冷静に問いかけや要点の整理をしながら会話します。`;
+
+    const reply = await sendToOpenAI(openAIMessages, systemPrompt);
+
+    const aiReply = {
+      sender: "sato_ai",
+      receiver: "佐藤社長",
+      text: reply,
+      timestamp: new Date().toISOString(),
+    };
+
+    setChatLog((prev) => [...prev, aiReply]);
+
+    await saveMessageToFirestore({
+      employeeId: "admin-sato",
+      sender: aiReply.sender,
+      receiver: aiReply.receiver,
+      text: aiReply.text,
+      timestamp: aiReply.timestamp,
+    });
+  };
+
   return (
-    <div style={{ display: "flex", height: "100vh", fontFamily: "sans-serif", backgroundColor: "#f0f2f5" }}>
-      
+    <div className="admin-container">
       {/* 左：プロフィール＆総評 */}
-      <div style={{ width: "25%", background: "#ffffff", color: "#050505", padding: "20px", borderRight: "1px solid #ccd0d5" }}>
-        <div style={{ textAlign: "center" }}>
-          <img src="/logo.png" alt="Ai-Mine Logo" style={{ width: "120px", marginBottom: "20px" }} />
-          <h2>佐藤社長</h2>
-        </div>
-        <div style={{ background: "#e4e6eb", borderRadius: "8px", padding: "15px", marginTop: "20px" }}>
+      <div className="admin-sidebar">
+        <img src="/logo.png" alt="Ai-Mine Logo" className="admin-logo" />
+        <h2>佐藤社長</h2>
+        <div className="admin-summary">
           <h4>📊 AI分析総評</h4>
           <p>🧠 社員のモチベ傾向：安定</p>
           <p>💬 コミュニケーション：対話型が増加中</p>
         </div>
       </div>
 
-      {/* 中央：壁打ち */}
-      <div style={{ width: "40%", padding: "20px", background: "#f0f2f5" }}>
-        <h2 style={{ color: "#050505" }}>分身AIとの壁打ちチャット（YOSUKE）</h2>
-        <div
-          style={{
-            height: "70vh",
-            background: "#ffffff",
-            borderRadius: "8px",
-            padding: "10px",
-            overflowY: "auto",
-            border: "1px solid #ccd0d5"
-          }}
-        >
-          <p style={{ color: "#65676b" }}>※ChatGPTとの接続はまだオフ</p>
+      {/* 中央：壁打ちチャット */}
+      <div className="admin-center">
+        <h2>分身AIとの壁打ちチャット（YOSUKE）</h2>
+
+        <div className="admin-chat-box">
+          {chatLog.length === 0 ? (
+            <p>※ChatGPTとの接続はまだオフ</p>
+          ) : (
+            chatLog.map((msg, i) => (
+              <div key={i}>
+                <strong>{msg.sender}</strong>: {msg.text}
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* ✅ 入力欄は常に表示 */}
+        <div className="admin-input-box">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="メッセージを入力..."
+          />
+          <button onClick={handleAdminSend}>送信</button>
         </div>
       </div>
 
-      {/* 右：ログ＋社員リスト */}
-      <div style={{ width: "35%", padding: "20px", background: "#ffffff", display: "flex", flexDirection: "column", borderLeft: "1px solid #ccd0d5" }}>
-        <h2 style={{ color: "#050505" }}>
+      {/* 右：ログと社員選択 */}
+      <div className="admin-right">
+        <h2>
           {selectedUser ? `📖 ${selectedUser.name}のログ表示` : "← 社員を選択"}
         </h2>
-
-        <div style={{ flex: 1, background: "#f0f2f5", borderRadius: "10px", padding: "15px", overflowY: "auto", marginBottom: "20px", border: "1px solid #ccd0d5" }}>
+        <div className="admin-log-box">
           {selectedUser ? (
             messages
-              .filter(msg => msg.sender === selectedUser.email || msg.receiver === selectedUser.email)
+              .filter(
+                (msg) =>
+                  msg.sender === selectedUser.email ||
+                  msg.receiver === selectedUser.email
+              )
               .map((msg, i) => (
-                <div key={i} style={{ marginBottom: "10px", color: "#050505" }}>
+                <div key={i}>
                   <strong>{msg.sender}</strong>: {msg.text}
                 </div>
               ))
           ) : (
-            <p style={{ color: "#65676b" }}>ログを見るには社員を選んでね😊</p>
+            <p>ログを見るには社員を選んでね😊</p>
           )}
         </div>
 
-        <div
-          style={{
-            background: "#e4e6eb",
-            borderRadius: "10px",
-            padding: "10px",
-            color: "#050505",
-            maxHeight: "180px",
-            overflowY: "auto"
-          }}
-        >
+        <div className="admin-user-list">
           <h4>👥 社員リスト</h4>
           {users.map((user) => (
             <div
               key={user.email}
               onClick={() => setSelectedUser(user)}
-              style={{
-                padding: "8px",
-                backgroundColor: selectedUser?.email === user.email ? "#d8dadf" : "#ffffff",
-                marginBottom: "8px",
-                borderRadius: "6px",
-                cursor: "pointer",
-                fontWeight: "bold",
-                textAlign: "center",
-                border: "1px solid #ccd0d5"
-              }}
+              className={`admin-user ${
+                selectedUser?.email === user.email ? "active" : ""
+              }`}
             >
               💬 {user.name}
             </div>
