@@ -2,13 +2,13 @@ import React, { useState } from "react";
 import {
   getAuth,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword,
 } from "firebase/auth";
 import {
   getFirestore,
   doc,
   setDoc,
-  getDoc
+  getDoc,
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
 import app from "./firebaseConfig";
@@ -17,6 +17,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 function Login({ setUserRole }) {
+  const [companyId, setCompanyId] = useState("");
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
@@ -26,6 +27,11 @@ function Login({ setUserRole }) {
 
   const handleLogin = async () => {
     try {
+      if (!companyId.trim()) {
+        alert("会社IDを入力してください");
+        return;
+      }
+
       if (isNewUser) {
         if (password !== confirmPassword) {
           alert("パスワードが一致していません💦");
@@ -35,10 +41,11 @@ function Login({ setUserRole }) {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const uid = userCredential.user.uid;
 
-        await setDoc(doc(db, "users", uid), {
+        await setDoc(doc(db, "companies", companyId, "users", uid), {
           email,
           name,
-          role: "employee"
+          role: "employee", // デフォルトでは一般職
+          companyId,
         });
 
         alert("登録が完了しました🎉 ログインしてね！");
@@ -50,20 +57,20 @@ function Login({ setUserRole }) {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const uid = userCredential.user.uid;
 
-        const docRef = doc(db, "users", uid);
+        const docRef = doc(db, "companies", companyId, "users", uid);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
-          const role = docSnap.data().role;
-          setUserRole(role); // 🌟 ロールをApp側に伝える！
+          const userData = docSnap.data();
+          setUserRole(userData.role);
 
-          if (role === "admin") {
+          if (userData.role === "admin") {
             navigate("/admin");
           } else {
             navigate("/employee");
           }
         } else {
-          alert("ユーザーデータが見つかりませんでした💦");
+          alert("ユーザー情報が見つかりませんでした💦");
         }
       }
     } catch (err) {
@@ -75,6 +82,14 @@ function Login({ setUserRole }) {
   return (
     <div style={{ padding: "40px" }}>
       <h2>{isNewUser ? "新規登録" : "ログイン"}</h2>
+
+      <input
+        type="text"
+        placeholder="会社ID（companyId）"
+        value={companyId}
+        onChange={(e) => setCompanyId(e.target.value)}
+        style={{ display: "block", marginBottom: "10px", padding: "10px" }}
+      />
 
       {isNewUser && (
         <input

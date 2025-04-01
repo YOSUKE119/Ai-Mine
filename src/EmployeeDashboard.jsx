@@ -1,100 +1,104 @@
-// EmployeeDashboard.jsx
 import React, { useState, useEffect } from "react";
-import { fetchMessages } from "./firebase";
+import { fetchMessages, saveMessageToFirestore } from "./firebase";
 import { sendToOpenAI } from "./openai";
+import { companyBots } from "./data/systemPrompts";
+import "./AdminView.css"; // ✅ 管理職と同じCSS適用
 
-function EmployeeDashboard() {
-  const bots = ["YOSUKE", "MIKU", "SORA"]; // 仮の分身AIたち
+function EmployeeDashboard({ companyId = "companyA", employeeId = "user1" }) {
+  const bots = Object.keys(companyBots[companyId]);
   const [selectedBot, setSelectedBot] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
 
   useEffect(() => {
     const getMessages = async () => {
-      const data = await fetchMessages(); // Firestoreから取得
+      const data = await fetchMessages(employeeId);
       setMessages(data);
     };
     getMessages();
-  }, []);
+  }, [employeeId]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !selectedBot) return;
 
     const newMessage = {
-      sender: "社員ユーザー",
+      sender: employeeId,
       receiver: selectedBot,
       text: input,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     const updatedMessages = [...messages, newMessage];
     setMessages(updatedMessages);
     setInput("");
 
+    await saveMessageToFirestore({
+      employeeId,
+      sender: newMessage.sender,
+      receiver: newMessage.receiver,
+      text: newMessage.text,
+      timestamp: newMessage.timestamp,
+    });
+
     const openAIMessages = updatedMessages
-      .filter(msg => msg.receiver === selectedBot)
-      .map(msg => ({
-        role: msg.sender === "社員ユーザー" ? "user" : "assistant",
-        content: msg.text
+      .filter(
+        (msg) => msg.receiver === selectedBot || msg.sender === selectedBot
+      )
+      .map((msg) => ({
+        role: msg.sender === employeeId ? "user" : "assistant",
+        content: msg.text,
       }));
 
-    const reply = await sendToOpenAI(openAIMessages);
+    const systemPrompt = companyBots[companyId][selectedBot];
+    const reply = await sendToOpenAI(openAIMessages, systemPrompt);
 
     const aiReply = {
       sender: selectedBot,
-      receiver: "社員ユーザー",
+      receiver: employeeId,
       text: reply,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
-    setMessages(prev => [...prev, aiReply]);
+    setMessages((prev) => [...prev, aiReply]);
+
+    await saveMessageToFirestore({
+      employeeId,
+      sender: aiReply.sender,
+      receiver: aiReply.receiver,
+      text: aiReply.text,
+      timestamp: aiReply.timestamp,
+    });
   };
 
   return (
-    <div style={{ display: "flex", height: "100vh", backgroundColor: "#0b0c10", color: "white" }}>
-      {/* 左：分身AI選択 */}
-      <div style={{ width: "25%", padding: "20px", backgroundColor: "#1f2833" }}>
-        <h2>分身AI</h2>
+    <div className="admin-container">
+      {/* 左：AI選択 */}
+      <div className="admin-sidebar">
+        <h2>分身AI選択</h2>
         {bots.map((bot) => (
           <div
             key={bot}
             onClick={() => setSelectedBot(bot)}
-            style={{
-              padding: "10px",
-              marginBottom: "10px",
-              borderRadius: "8px",
-              backgroundColor: selectedBot === bot ? "#66fcf1" : "#45a29e",
-              cursor: "pointer",
-              color: "#0b0c10",
-              fontWeight: "bold",
-              textAlign: "center"
-            }}
+            className={`admin-user ${selectedBot === bot ? "active" : ""}`}
           >
             🤖 {bot}
           </div>
         ))}
       </div>
 
-      {/* 右：チャット画面 */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "20px" }}>
-        <h2 style={{ color: "#66fcf1" }}>
+      {/* 中央：チャット */}
+      <div className="admin-center">
+        <h2>
           {selectedBot ? `${selectedBot}とのチャット` : "← 分身AIを選んでください"}
         </h2>
 
-        <div
-          style={{
-            flex: 1,
-            marginTop: "20px",
-            overflowY: "auto",
-            backgroundColor: "#c5c6c7",
-            padding: "15px",
-            borderRadius: "10px",
-            color: "black"
-          }}
-        >
+        <div className="admin-chat-box">
           {selectedBot &&
             messages
-              .filter(msg => msg.receiver === selectedBot || msg.sender === selectedBot)
+              .filter(
+                (msg) =>
+                  msg.receiver === selectedBot || msg.sender === selectedBot
+              )
               .map((msg, index) => (
                 <div key={index} style={{ marginBottom: "10px" }}>
                   <strong>{msg.sender}</strong>: {msg.text}
@@ -103,27 +107,14 @@ function EmployeeDashboard() {
         </div>
 
         {selectedBot && (
-          <div style={{ marginTop: "20px", display: "flex" }}>
+          <div className="admin-input-box">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               placeholder="メッセージを入力..."
-              style={{ flex: 1, padding: "10px", borderRadius: "6px 0 0 6px", border: "none" }}
             />
-            <button
-              onClick={handleSend}
-              style={{
-                padding: "10px 20px",
-                borderRadius: "0 6px 6px 0",
-                backgroundColor: "#66fcf1",
-                color: "#0b0c10",
-                border: "none",
-                cursor: "pointer"
-              }}
-            >
-              送信
-            </button>
+            <button onClick={handleSend}>送信</button>
           </div>
         )}
       </div>
