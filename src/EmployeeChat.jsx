@@ -1,115 +1,118 @@
-    import React, { useState, useEffect } from "react";
-    import { fetchMessages } from "./firebase";
-    import { sendToOpenAI } from "./openai"; // 🔹ChatGPT連携関数
+import React, { useState, useEffect } from "react";
+import { fetchMessages, saveMessageToFirestore } from "./firebase";
+import { sendToOpenAI } from "./openai";
+import { companyBots } from "./data/systemPrompts"; // 🔹 分身AI設定
+import "./AdminView.css"; // ○ 管理職と同じスタイル適用
 
-    function EmployeeChat() {
-    const bots = ["YOSUKE"]; // テスト用分身AI
-    const [selectedBot, setSelectedBot] = useState(null);
-    const [messages, setMessages] = useState([]);
-    const [input, setInput] = useState("");
+function EmployeeChat({ companyId = "companyA", employeeId = "user1" }) {
+  const bots = Object.keys(companyBots[companyId]);
+  const [selectedBot, setSelectedBot] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
 
-    useEffect(() => {
-        const getMessages = async () => {
-        const data = await fetchMessages();
-        setMessages(data);
-        };
-        getMessages();
-    }, []);
+  useEffect(() => {
+    const getMessages = async () => {
+      const data = await fetchMessages(employeeId);
+      setMessages(data);
+    };
+    getMessages();
+  }, [employeeId]);
 
-    const handleSend = async () => {
-        if (!input.trim()) return;
+  const handleSend = async () => {
+    if (!input.trim() || !selectedBot) return;
 
-        const newMessage = {
-        sender: "社員ユーザー",
-        receiver: selectedBot,
-        text: input,
-        timestamp: new Date().toISOString()
-        };
-
-        const updatedMessages = [...messages, newMessage];
-        setMessages(updatedMessages);
-        setInput("");
-
-        // OpenAIに送る形式に整形
-        const openAIMessages = updatedMessages
-        .filter(msg => msg.receiver === selectedBot)
-        .map(msg => ({
-            role: msg.sender === "社員ユーザー" ? "user" : "assistant",
-            content: msg.text
-        }));
-
-        // ChatGPT (YOSUKE分身) からの返信✨
-        const reply = await sendToOpenAI(openAIMessages);
-
-        const aiReply = {
-        sender: selectedBot,
-        receiver: "社員ユーザー",
-        text: reply,
-        timestamp: new Date().toISOString()
-        };
-
-        setMessages(prev => [...prev, aiReply]);
+    const newMessage = {
+      sender: employeeId,
+      receiver: selectedBot,
+      text: input,
+      timestamp: new Date().toISOString()
     };
 
-    return (
-        <div style={{ display: "flex", height: "100vh", backgroundColor: "#0b0c10", color: "white" }}>
-        {/* 左サイド：分身AI選択 */}
-        <div style={{ width: "25%", padding: "20px", backgroundColor: "#1f2833" }}>
-            <h2 style={{ marginBottom: "20px" }}>分身AI選択</h2>
-            {bots.map((bot) => (
-            <div
-                key={bot}
-                onClick={() => setSelectedBot(bot)}
-                style={{
-                padding: "10px",
-                marginBottom: "10px",
-                borderRadius: "8px",
-                backgroundColor: selectedBot === bot ? "#66fcf1" : "#45a29e",
-                cursor: "pointer",
-                color: "#0b0c10",
-                fontWeight: "bold",
-                textAlign: "center"
-                }}
-            >
-                🤖 {bot}
-            </div>
+    const updatedMessages = [...messages, newMessage];
+    setMessages(updatedMessages);
+    setInput("");
+
+    await saveMessageToFirestore({
+      employeeId,
+      sender: newMessage.sender,
+      receiver: newMessage.receiver,
+      text: newMessage.text,
+      timestamp: newMessage.timestamp,
+    });
+
+    const openAIMessages = updatedMessages
+      .filter(msg => msg.receiver === selectedBot || msg.sender === selectedBot)
+      .map(msg => ({
+        role: msg.sender === employeeId ? "user" : "assistant",
+        content: msg.text,
+      }));
+
+    const systemPrompt = companyBots[companyId][selectedBot];
+
+    const reply = await sendToOpenAI(openAIMessages, systemPrompt);
+
+    const aiReply = {
+      sender: selectedBot,
+      receiver: employeeId,
+      text: reply,
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages(prev => [...prev, aiReply]);
+
+    await saveMessageToFirestore({
+      employeeId,
+      sender: aiReply.sender,
+      receiver: aiReply.receiver,
+      text: aiReply.text,
+      timestamp: aiReply.timestamp,
+    });
+  };
+
+  return (
+    <div className="admin-container">
+      {/* 左：AI選択 */}
+      <div className="admin-sidebar">
+        <h2>分身AI選択</h2>
+        {bots.map((bot) => (
+          <div
+            key={bot}
+            onClick={() => setSelectedBot(bot)}
+            className={`admin-user ${selectedBot === bot ? "active" : ""}`}
+          >
+            🤖 {bot}
+          </div>
+        ))}
+      </div>
+
+      {/* 中央：チャット */}
+      <div className="admin-center">
+        <h2>{selectedBot ? `${selectedBot}とのチャット` : "← 分身AIを選んでください"}</h2>
+
+        <div className="admin-chat-box">
+          {selectedBot && messages
+            .filter(msg => msg.receiver === selectedBot || msg.sender === selectedBot)
+            .map((msg, index) => (
+              <div key={index} style={{ marginBottom: "10px" }}>
+                <strong>{msg.sender}</strong>: {msg.text}
+              </div>
             ))}
         </div>
 
-        {/* 右側：チャットエリア */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "20px" }}>
-            <h2 style={{ color: "#66fcf1" }}>{selectedBot ? `${selectedBot}とのチャット` : "← 分身AIを選んでください"}</h2>
+        {selectedBot && (
+          <div className="admin-input-box">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="メッセージを入力..."
+            />
+            <button onClick={handleSend}>送信</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
-            <div style={{ flex: 1, marginTop: "20px", overflowY: "auto", backgroundColor: "#c5c6c7", padding: "15px", borderRadius: "10px", color: "black" }}>
-            {selectedBot && messages
-                .filter(msg => msg.receiver === selectedBot || msg.sender === selectedBot)
-                .map((msg, index) => (
-                <div key={index} style={{ marginBottom: "10px" }}>
-                    <strong>{msg.sender}</strong>: {msg.text}
-                </div>
-                ))}
-            </div>
-
-            {selectedBot && (
-            <div style={{ marginTop: "20px", display: "flex" }}>
-                <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="メッセージを入力..."
-                style={{ flex: 1, padding: "10px", borderRadius: "6px 0 0 6px", border: "none" }}
-                />
-                <button
-                onClick={handleSend}
-                style={{ padding: "10px 20px", borderRadius: "0 6px 6px 0", backgroundColor: "#66fcf1", color: "#0b0c10", border: "none", cursor: "pointer" }}
-                >
-                送信
-                </button>
-            </div>
-            )}
-        </div>
-        </div>
-    );
-    }
-
-    export default EmployeeChat;
+export default EmployeeChat;

@@ -1,3 +1,4 @@
+// ✅ AdminView.jsx（社員ごとのトークログを表示できるように）
 import React, { useState, useEffect } from "react";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
 import { fetchMessages, saveMessageToFirestore } from "./firebase";
@@ -99,7 +100,7 @@ function AdminView() {
 
       {/* 中央：壁打ちチャット */}
       <div className="admin-center">
-        <h2>分身AIとの壁打ちチャット（YOSUKE）</h2>
+        <h2>分身AIとの壁打ちチャット（sato_ai）</h2>
 
         <div className="admin-chat-box">
           {chatLog.length === 0 ? (
@@ -135,8 +136,7 @@ function AdminView() {
             messages
               .filter(
                 (msg) =>
-                  msg.sender === selectedUser.email ||
-                  msg.receiver === selectedUser.email
+                  msg.employeeId === selectedUser.email // ← 🔍 ここで employeeId でフィルタリング！
               )
               .map((msg, i) => (
                 <div key={i}>
