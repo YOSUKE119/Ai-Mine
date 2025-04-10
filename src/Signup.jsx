@@ -8,13 +8,19 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 function Signup() {
-  const [name, setName] = useState(""); // ← 名前の状態を追加✨
+  const [companyId, setCompanyId] = useState(""); // ← 追加
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const navigate = useNavigate();
 
   const handleSignup = async () => {
+    if (!companyId.trim()) {
+      alert("会社IDを入力してください");
+      return;
+    }
+
     if (password !== confirm) {
       alert("パスワードが一致しません💦");
       return;
@@ -24,11 +30,12 @@ function Signup() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const uid = userCredential.user.uid;
 
-      // 🎉 Firestoreに名前も保存✨
-      await setDoc(doc(db, "users", uid), {
-        name,
+      // 🔸 ランダムIDではなく uid を明示的に使って保存
+      await setDoc(doc(db, "companies", companyId, "users", uid), {
         email,
-        role: "employee"
+        name,
+        role: "employee",
+        companyId,
       });
 
       alert("登録完了！ログインしてね✨");
@@ -42,6 +49,14 @@ function Signup() {
   return (
     <div style={{ padding: "40px" }}>
       <h2>新規登録</h2>
+
+      <input
+        type="text"
+        placeholder="会社ID（必須）"
+        value={companyId}
+        onChange={(e) => setCompanyId(e.target.value)}
+        style={{ display: "block", marginBottom: "10px", padding: "10px" }}
+      />
 
       <input
         type="text"
@@ -69,7 +84,7 @@ function Signup() {
 
       <input
         type="password"
-        placeholder="パスワード確認"
+        placeholder="パスワード（確認）"
         value={confirm}
         onChange={(e) => setConfirm(e.target.value)}
         style={{ display: "block", marginBottom: "20px", padding: "10px" }}

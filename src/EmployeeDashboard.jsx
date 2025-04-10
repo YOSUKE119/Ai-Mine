@@ -1,95 +1,120 @@
 import React, { useState, useEffect } from "react";
-import { fetchMessages, saveMessageToFirestore } from "./firebase";
+import {
+  fetchMessages,
+  saveMessageToFirestore,
+  fetchCompanyBots,
+} from "./firebase";
 import { sendToOpenAI } from "./openai";
-import { companyBots } from "./data/systemPrompts";
-import "./AdminView.css"; // ✅ 管理職と同じCSS適用
+import "./AdminView.css"; // ✅ CSS共通利用
 
-function EmployeeDashboard({ companyId = "companyA", employeeId = "user1" }) {
-  const bots = Object.keys(companyBots[companyId]);
+function EmployeeDashboard({ companyId, employeeId }) {
+  const [bots, setBots] = useState([]);
+  const [botPrompts, setBotPrompts] = useState({});
   const [selectedBot, setSelectedBot] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
 
+  // 🔸 Bot一覧取得
+  useEffect(() => {
+    const getBots = async () => {
+      const botData = await fetchCompanyBots(companyId);
+      setBotPrompts(botData);
+      setBots(Object.keys(botData));
+    };
+    if (companyId) getBots();
+  }, [companyId]);
+
+  // 🔸 メッセージ取得
   useEffect(() => {
     const getMessages = async () => {
-      const data = await fetchMessages(employeeId);
+      const data = await fetchMessages(companyId, employeeId);
+      // 🔁 時系列順に並び替え
+      data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       setMessages(data);
     };
-    getMessages();
-  }, [employeeId]);
+    if (companyId && employeeId) getMessages();
+  }, [companyId, employeeId]);
 
+  // 🔸 送信処理
   const handleSend = async () => {
     if (!input.trim() || !selectedBot) return;
 
-    const newMessage = {
+    const userMsg = {
       sender: employeeId,
       receiver: selectedBot,
       text: input,
       timestamp: new Date().toISOString(),
     };
 
-    const updatedMessages = [...messages, newMessage];
-    setMessages(updatedMessages);
+    setMessages((prev) => [...prev, userMsg]);
     setInput("");
 
     await saveMessageToFirestore({
+      companyId,
       employeeId,
-      sender: newMessage.sender,
-      receiver: newMessage.receiver,
-      text: newMessage.text,
-      timestamp: newMessage.timestamp,
+      ...userMsg,
     });
 
-    const openAIMessages = updatedMessages
+    const relevantMessages = [...messages, userMsg]
       .filter(
-        (msg) => msg.receiver === selectedBot || msg.sender === selectedBot
+        (msg) =>
+          (msg.sender === employeeId && msg.receiver === selectedBot) ||
+          (msg.sender === selectedBot && msg.receiver === employeeId)
       )
-      .map((msg) => ({
-        role: msg.sender === employeeId ? "user" : "assistant",
-        content: msg.text,
-      }));
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-    const systemPrompt = companyBots[companyId][selectedBot];
-    const reply = await sendToOpenAI(openAIMessages, systemPrompt);
+    const openAIMessages = relevantMessages.map((msg) => ({
+      role: msg.sender === employeeId ? "user" : "assistant",
+      content: msg.text,
+    }));
+
+    const prompt =
+      botPrompts[selectedBot]?.prompt || "あなたは親切なAIです。";
+
+    const replyText = await sendToOpenAI(openAIMessages, prompt);
 
     const aiReply = {
       sender: selectedBot,
       receiver: employeeId,
-      text: reply,
+      text: replyText,
       timestamp: new Date().toISOString(),
     };
 
     setMessages((prev) => [...prev, aiReply]);
 
     await saveMessageToFirestore({
+      companyId,
       employeeId,
-      sender: aiReply.sender,
-      receiver: aiReply.receiver,
-      text: aiReply.text,
-      timestamp: aiReply.timestamp,
+      ...aiReply,
     });
   };
 
   return (
     <div className="admin-container">
-      {/* 左：AI選択 */}
+      {/* 左：Bot選択 */}
       <div className="admin-sidebar">
         <h2>分身AI選択</h2>
-        {bots.map((bot) => (
-          <div
-            key={bot}
-            onClick={() => setSelectedBot(bot)}
-            className={`admin-user ${selectedBot === bot ? "active" : ""}`}
-          >
-            🤖 {bot}
-          </div>
-        ))}
+        {bots.length === 0 ? (
+          <p>⚠️ 利用できる分身AIがありません</p>
+        ) : (
+          bots.map((bot) => (
+            <div
+              key={bot}
+              onClick={() => setSelectedBot(bot)}
+              className={`admin-user ${selectedBot === bot ? "active" : ""}`}
+            >
+              🤖 {bot}
+            </div>
+          ))
+        )}
       </div>
 
-      {/* 中央：チャット */}
+      {/* 中央：チャットエリア */}
       <div className="admin-center">
         <h2>
-          {selectedBot ? `${selectedBot}とのチャット` : "← 分身AIを選んでください"}
+          {selectedBot
+            ? `${selectedBot}とのチャット`
+            : "← 分身AIを選んでください"}
         </h2>
 
         <div className="admin-chat-box">
@@ -97,10 +122,18 @@ function EmployeeDashboard({ companyId = "companyA", employeeId = "user1" }) {
             messages
               .filter(
                 (msg) =>
-                  msg.receiver === selectedBot || msg.sender === selectedBot
+                  msg.receiver === selectedBot ||
+                  msg.sender === selectedBot
               )
+              .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
               .map((msg, index) => (
-                <div key={index} style={{ marginBottom: "10px" }}>
+                <div
+                  key={index}
+                  style={{
+                    textAlign: "left",
+                    marginBottom: "10px",
+                  }}
+                >
                   <strong>{msg.sender}</strong>: {msg.text}
                 </div>
               ))}

@@ -1,15 +1,35 @@
 import React, { useState, useEffect } from "react";
 import { fetchMessages, saveMessageToFirestore } from "./firebase";
 import { sendToOpenAI } from "./openai";
-import { companyBots } from "./data/systemPrompts"; // 🔹 分身AI設定
-import "./AdminView.css"; // ○ 管理職と同じスタイル適用
+import { getFirestore, collection, getDocs } from "firebase/firestore";
+import app from "./firebaseConfig";
+import "./AdminView.css"; // 管理職と共通スタイル
+
+const db = getFirestore(app);
 
 function EmployeeChat({ companyId = "companyA", employeeId = "user1" }) {
-  const bots = Object.keys(companyBots[companyId]);
+  const [botData, setBotData] = useState({}); // bot名とプロンプトのセット
   const [selectedBot, setSelectedBot] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
 
+  // 🔹 Firestoreからbot情報取得
+  useEffect(() => {
+    const fetchBots = async () => {
+      const colRef = collection(db, "companies", companyId, "bots");
+      const snap = await getDocs(colRef);
+
+      const botsObj = {};
+      snap.forEach((doc) => {
+        botsObj[doc.id] = doc.data().prompt;
+      });
+      setBotData(botsObj);
+    };
+
+    fetchBots();
+  }, [companyId]);
+
+  // 🔹 メッセージ取得（初期ロード）
   useEffect(() => {
     const getMessages = async () => {
       const data = await fetchMessages(employeeId);
@@ -18,6 +38,7 @@ function EmployeeChat({ companyId = "companyA", employeeId = "user1" }) {
     getMessages();
   }, [employeeId]);
 
+  // 🔹 メッセージ送信処理
   const handleSend = async () => {
     if (!input.trim() || !selectedBot) return;
 
@@ -25,7 +46,7 @@ function EmployeeChat({ companyId = "companyA", employeeId = "user1" }) {
       sender: employeeId,
       receiver: selectedBot,
       text: input,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     const updatedMessages = [...messages, newMessage];
@@ -41,13 +62,16 @@ function EmployeeChat({ companyId = "companyA", employeeId = "user1" }) {
     });
 
     const openAIMessages = updatedMessages
-      .filter(msg => msg.receiver === selectedBot || msg.sender === selectedBot)
-      .map(msg => ({
+      .filter(
+        (msg) =>
+          msg.receiver === selectedBot || msg.sender === selectedBot
+      )
+      .map((msg) => ({
         role: msg.sender === employeeId ? "user" : "assistant",
         content: msg.text,
       }));
 
-    const systemPrompt = companyBots[companyId][selectedBot];
+    const systemPrompt = botData[selectedBot]; // Firestoreから取得したプロンプト
 
     const reply = await sendToOpenAI(openAIMessages, systemPrompt);
 
@@ -58,7 +82,7 @@ function EmployeeChat({ companyId = "companyA", employeeId = "user1" }) {
       timestamp: new Date().toISOString(),
     };
 
-    setMessages(prev => [...prev, aiReply]);
+    setMessages((prev) => [...prev, aiReply]);
 
     await saveMessageToFirestore({
       employeeId,
@@ -68,6 +92,8 @@ function EmployeeChat({ companyId = "companyA", employeeId = "user1" }) {
       timestamp: aiReply.timestamp,
     });
   };
+
+  const bots = Object.keys(botData);
 
   return (
     <div className="admin-container">
@@ -87,16 +113,22 @@ function EmployeeChat({ companyId = "companyA", employeeId = "user1" }) {
 
       {/* 中央：チャット */}
       <div className="admin-center">
-        <h2>{selectedBot ? `${selectedBot}とのチャット` : "← 分身AIを選んでください"}</h2>
+        <h2>
+          {selectedBot ? `${selectedBot}とのチャット` : "← 分身AIを選んでください"}
+        </h2>
 
         <div className="admin-chat-box">
-          {selectedBot && messages
-            .filter(msg => msg.receiver === selectedBot || msg.sender === selectedBot)
-            .map((msg, index) => (
-              <div key={index} style={{ marginBottom: "10px" }}>
-                <strong>{msg.sender}</strong>: {msg.text}
-              </div>
-            ))}
+          {selectedBot &&
+            messages
+              .filter(
+                (msg) =>
+                  msg.receiver === selectedBot || msg.sender === selectedBot
+              )
+              .map((msg, index) => (
+                <div key={index} style={{ marginBottom: "10px" }}>
+                  <strong>{msg.sender}</strong>: {msg.text}
+                </div>
+              ))}
         </div>
 
         {selectedBot && (

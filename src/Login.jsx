@@ -44,11 +44,11 @@ function Login({ setUserRole }) {
         await setDoc(doc(db, "companies", companyId, "users", uid), {
           email,
           name,
-          role: "employee", // デフォルトでは一般職
+          role: "employee", // 新規ユーザーは employee 扱い
           companyId,
         });
 
-        alert("登録が完了しました🎉 ログインしてね！");
+        alert("登録が完了しました🎉 ログインしてください！");
         setIsNewUser(false);
         setPassword("");
         setConfirmPassword("");
@@ -62,20 +62,28 @@ function Login({ setUserRole }) {
 
         if (docSnap.exists()) {
           const userData = docSnap.data();
+
+          // ✅ companyId を保存（リロード時も使えるように）
+          localStorage.setItem("companyId", companyId);
+
           setUserRole(userData.role);
 
+          // ✅ ロールに応じてルーティング
           if (userData.role === "admin") {
             navigate("/admin");
+          } else if (userData.role === "developer") {
+            navigate("/dev");
           } else {
             navigate("/employee");
           }
+
         } else {
           alert("ユーザー情報が見つかりませんでした💦");
         }
       }
     } catch (err) {
       console.error("エラー:", err);
-      alert("うまくいかなかったみたい…🥺");
+      alert("うまくいきませんでした…🥺");
     }
   };
 
