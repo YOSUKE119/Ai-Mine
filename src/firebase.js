@@ -1,23 +1,24 @@
-// src/firebase.js
-
+// firebase.js
 import {
-  getFirestore,
   collection,
   getDocs,
   addDoc,
   query,
   orderBy,
+  setDoc,
+  doc
 } from "firebase/firestore";
-import app from "./firebaseConfig";
 
-const db = getFirestore(app);
+import { db, auth } from "./firebaseConfig";
 
 /**
  * 🔹 メッセージ取得（社員ごと・会社ごと）
- * 🔸 timestamp 昇順（古い → 新しい）で並び替え済み
  */
 export const fetchMessages = async (companyId, employeeId) => {
   try {
+    const user = auth.currentUser;
+    if (!user) throw new Error("未認証ユーザーです");
+
     const messagesRef = collection(
       db,
       "companies",
@@ -27,12 +28,12 @@ export const fetchMessages = async (companyId, employeeId) => {
       "messages"
     );
 
-    const q = query(messagesRef, orderBy("timestamp", "asc")); // ✅ 昇順で取得
+    const q = query(messagesRef, orderBy("timestamp", "asc"));
     const snapshot = await getDocs(q);
 
     return snapshot.docs.map((doc) => doc.data());
   } catch (error) {
-    console.error("❌ メッセージ取得エラー:", error);
+    console.error("❌ メッセージ取得エラー:", error.code, error.message);
     return [];
   }
 };
@@ -49,6 +50,9 @@ export const saveMessageToFirestore = async ({
   timestamp,
 }) => {
   try {
+    const user = auth.currentUser;
+    if (!user) throw new Error("未認証ユーザーです");
+
     const messagesRef = collection(
       db,
       "companies",
@@ -58,32 +62,59 @@ export const saveMessageToFirestore = async ({
       "messages"
     );
 
-    await addDoc(messagesRef, { sender, receiver, text, timestamp });
+    await addDoc(messagesRef, {
+      sender,
+      receiver,
+      text,
+      timestamp,
+    });
+
     console.log("✅ Firebaseに保存されました");
   } catch (error) {
-    console.error("❌ Firebase保存エラー:", error);
+    console.error("❌ Firebase保存エラー:", error.code, error.message);
   }
 };
 
 /**
- * 🔹 Bot一覧を取得（会社ごと）
+ * 🔹 Bot一覧取得
  */
 export const fetchCompanyBots = async (companyId) => {
   try {
+    const user = auth.currentUser;
+    if (!user) throw new Error("未認証ユーザーです");
+
     const botsRef = collection(db, "companies", companyId, "bots");
     const snapshot = await getDocs(botsRef);
 
     const bots = {};
     snapshot.forEach((doc) => {
-      bots[doc.id] = doc.data(); // 例: { 佐藤社長: { prompt: "..."} }
+      bots[doc.id] = doc.data();
     });
 
     return bots;
   } catch (error) {
-    console.error("❌ Bot一覧の取得エラー:", error);
+    console.error("❌ Bot一覧の取得エラー:", error.code, error.message);
     return {};
   }
 };
 
-// 🔸 Firestoreインスタンスも必要なら個別エクスポート
-export { db };
+/**
+ * 🔹 会社追加
+ */
+export const addCompany = async (companyId, companyName) => {
+  try {
+    const user = auth.currentUser;
+    if (!user) throw new Error("未認証ユーザーです");
+
+    const companyRef = doc(db, "companies", companyId);
+    await setDoc(companyRef, {
+      name: companyName,
+      createdAt: new Date().toISOString(),
+    });
+
+    console.log("✅ 会社追加成功");
+  } catch (err) {
+    console.error("❌ 会社追加エラー:", err.code, err.message);
+    throw err;
+  }
+};

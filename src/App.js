@@ -1,15 +1,20 @@
 import './App.css';
 import React, { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { getFirestore, doc, getDoc } from "firebase/firestore";
-import app from "./firebaseConfig";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "./firebaseConfig";
 
+// 各画面
 import AdminView from "./AdminView";
 import EmployeeDashboard from "./EmployeeDashboard";
 import Login from "./Login";
 import ProtectedRoute from "./ProtectedRoute";
-import DevConsole from "./DevConsole"; // ✅ 開発者ページ
+import DevConsole from "./DevConsole";
+import DeveloperLogin from "./DeveloperLogin";
+
+// ✅ 一時的に開発者ユーザーを作成するコンポーネント
+import CreateDevUser from "./CreateDevUser";
 
 function App() {
   const [userRole, setUserRole] = useState(null);
@@ -18,35 +23,44 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const auth = getAuth();
-    const db = getFirestore(app);
-
     onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const uid = user.uid;
-        setUid(uid);
-
-        const savedCompanyId = localStorage.getItem("companyId");
-        if (!savedCompanyId) {
-          console.error("❌ companyId が localStorage に存在しません");
-          setLoading(false);
-          return;
-        }
-
-        const userRef = doc(db, "companies", savedCompanyId, "users", uid);
-        const userDoc = await getDoc(userRef);
-
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setCompanyId(savedCompanyId);
-          setUserRole(userData.role);
-        } else {
-          console.error("❌ Firestore にユーザードキュメントが見つかりません");
-        }
-      } else {
+      if (!user) {
         setUid(null);
         setCompanyId(null);
         setUserRole(null);
+        setLoading(false);
+        return;
+      }
+
+      const uid = user.uid;
+      setUid(uid);
+
+      // ✅ グローバル開発者の確認
+      const devRef = doc(db, "developerUsers", uid);
+      const devSnap = await getDoc(devRef);
+      if (devSnap.exists()) {
+        setUserRole("developer");
+        setCompanyId(null);
+        setLoading(false);
+        return;
+      }
+
+      // 🔸 開発者でなければ会社所属ユーザーとして確認
+      const savedCompanyId = localStorage.getItem("companyId");
+      if (!savedCompanyId) {
+        console.error("❌ companyId が localStorage に存在しません");
+        setLoading(false);
+        return;
+      }
+
+      const userRef = doc(db, "companies", savedCompanyId, "users", uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const role = userSnap.data().role;
+        setUserRole(role);
+        setCompanyId(savedCompanyId);
+      } else {
+        console.error("❌ Firestore にユーザードキュメントが見つかりません");
       }
 
       setLoading(false);
@@ -59,21 +73,12 @@ function App() {
     <div className="App">
       <Router>
         <Routes>
-          {/* 🔐 ログイン */}
           <Route path="/" element={<Login setUserRole={setUserRole} />} />
-
-          {/* 👤 一般社員 */}
+          <Route path="/dev-login" element={<DeveloperLogin />} />
           <Route
             path="/employee"
-            element={
-              <EmployeeDashboard
-                companyId={companyId}
-                employeeId={uid}
-              />
-            }
+            element={<EmployeeDashboard companyId={companyId} employeeId={uid} />}
           />
-
-          {/* 👨‍💼 管理職 */}
           <Route
             path="/admin"
             element={
@@ -82,8 +87,6 @@ function App() {
               </ProtectedRoute>
             }
           />
-
-          {/* 🛠️ 開発者 */}
           <Route
             path="/dev"
             element={
@@ -92,6 +95,8 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* ✅ 開発用：一時的なルート */}
+          <Route path="/create-dev" element={<CreateDevUser />} />
         </Routes>
       </Router>
     </div>

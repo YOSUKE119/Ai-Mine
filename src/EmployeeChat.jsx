@@ -1,42 +1,38 @@
 import React, { useState, useEffect } from "react";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "./firebaseConfig"; // ✅ 統一して db を import
 import { fetchMessages, saveMessageToFirestore } from "./firebase";
 import { sendToOpenAI } from "./openai";
-import { getFirestore, collection, getDocs } from "firebase/firestore";
-import app from "./firebaseConfig";
-import "./AdminView.css"; // 管理職と共通スタイル
-
-const db = getFirestore(app);
+import "./AdminView.css"; // 管理職と共通スタイル使用
 
 function EmployeeChat({ companyId = "companyA", employeeId = "user1" }) {
-  const [botData, setBotData] = useState({}); // bot名とプロンプトのセット
+  const [botData, setBotData] = useState({});
   const [selectedBot, setSelectedBot] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
 
-  // 🔹 Firestoreからbot情報取得
+  // 🔹 Firestore から bot 情報取得
   useEffect(() => {
     const fetchBots = async () => {
       const colRef = collection(db, "companies", companyId, "bots");
       const snap = await getDocs(colRef);
-
       const botsObj = {};
       snap.forEach((doc) => {
         botsObj[doc.id] = doc.data().prompt;
       });
       setBotData(botsObj);
     };
-
     fetchBots();
   }, [companyId]);
 
   // 🔹 メッセージ取得（初期ロード）
   useEffect(() => {
     const getMessages = async () => {
-      const data = await fetchMessages(employeeId);
+      const data = await fetchMessages(companyId, employeeId);
       setMessages(data);
     };
     getMessages();
-  }, [employeeId]);
+  }, [companyId, employeeId]);
 
   // 🔹 メッセージ送信処理
   const handleSend = async () => {
@@ -54,11 +50,9 @@ function EmployeeChat({ companyId = "companyA", employeeId = "user1" }) {
     setInput("");
 
     await saveMessageToFirestore({
+      companyId,
       employeeId,
-      sender: newMessage.sender,
-      receiver: newMessage.receiver,
-      text: newMessage.text,
-      timestamp: newMessage.timestamp,
+      ...newMessage,
     });
 
     const openAIMessages = updatedMessages
@@ -71,7 +65,7 @@ function EmployeeChat({ companyId = "companyA", employeeId = "user1" }) {
         content: msg.text,
       }));
 
-    const systemPrompt = botData[selectedBot]; // Firestoreから取得したプロンプト
+    const systemPrompt = botData[selectedBot];
 
     const reply = await sendToOpenAI(openAIMessages, systemPrompt);
 
@@ -85,11 +79,9 @@ function EmployeeChat({ companyId = "companyA", employeeId = "user1" }) {
     setMessages((prev) => [...prev, aiReply]);
 
     await saveMessageToFirestore({
+      companyId,
       employeeId,
-      sender: aiReply.sender,
-      receiver: aiReply.receiver,
-      text: aiReply.text,
-      timestamp: aiReply.timestamp,
+      ...aiReply,
     });
   };
 

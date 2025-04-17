@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  getFirestore,
   collection,
   getDocs,
   doc,
@@ -9,16 +8,11 @@ import {
   orderBy,
 } from "firebase/firestore";
 
-import {
-  fetchMessages,
-  saveMessageToFirestore,
-} from "./firebase";
-
+import { fetchMessages, saveMessageToFirestore } from "./firebase";
 import { sendToOpenAI } from "./openai";
-import app from "./firebaseConfig";
-import "./AdminView.css";
 
-const db = getFirestore(app);
+import { db } from "./firebaseConfig"; // ✅ appではなくdbを使う
+import "./AdminView.css";
 
 function AdminView({ companyId, adminId }) {
   const [users, setUsers] = useState([]);
@@ -33,7 +27,6 @@ function AdminView({ companyId, adminId }) {
 
   useEffect(() => {
     const loadData = async () => {
-      // ✅ 1. 社員一覧を先に取得
       const userSnap = await getDocs(collection(db, "companies", companyId, "users"));
       const employeeList = [];
       userSnap.forEach((doc) => {
@@ -48,7 +41,6 @@ function AdminView({ companyId, adminId }) {
       });
       setUsers(employeeList);
 
-      // ✅ 2. 管理者のBot情報を取得
       const adminRef = doc(db, "companies", companyId, "users", adminId);
       const adminSnap = await getDoc(adminRef);
       const adminData = adminSnap.data();
@@ -60,7 +52,6 @@ function AdminView({ companyId, adminId }) {
       const prompt = botSnap.exists() ? botSnap.data().prompt : "あなたは親切なAIです。";
       setBotPrompt(prompt);
 
-      // ✅ 3. 壁打ちチャットログの初期取得
       const messageData = await fetchMessages(companyId, adminId);
       const filteredLog = messageData.filter(
         (msg) =>
@@ -193,10 +184,7 @@ ${filtered.map((m) => `${m.sender}: ${m.text}`).join("\n")}
             <p>※ChatGPTとの会話はまだありません</p>
           ) : (
             chatLog.map((msg, i) => (
-              <div
-                key={i}
-                style={{ textAlign: "left", marginBottom: "10px" }}
-              >
+              <div key={i} style={{ textAlign: "left", marginBottom: "10px" }}>
                 <strong>{msg.sender === adminId ? "管理職" : adminBot}</strong>: {msg.text}
               </div>
             ))
@@ -233,7 +221,6 @@ ${filtered.map((m) => `${m.sender}: ${m.text}`).join("\n")}
           <p>社員を選んでログを見る</p>
         )}
 
-        {/* ✅ 常に表示 */}
         <div className="admin-user-list">
           {users.length > 0 ? (
             users.map((user) => (

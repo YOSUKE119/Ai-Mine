@@ -10,7 +10,7 @@ export async function sendToOpenAI(messages, systemPrompt) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-2024-11-20",
+        model: "gpt-4.1",
         messages: [
           { role: "system", content: systemPrompt }, // ←ここが変わる！
           ...messages,

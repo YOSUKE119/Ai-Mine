@@ -1,20 +1,15 @@
 import React, { useState } from "react";
 import {
-  getAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
 } from "firebase/auth";
 import {
-  getFirestore,
   doc,
   setDoc,
   getDoc,
 } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
-import app from "./firebaseConfig";
-
-const auth = getAuth(app);
-const db = getFirestore(app);
+import { auth, db } from "./firebaseConfig";
 
 function Login({ setUserRole }) {
   const [companyId, setCompanyId] = useState("");
@@ -44,7 +39,7 @@ function Login({ setUserRole }) {
         await setDoc(doc(db, "companies", companyId, "users", uid), {
           email,
           name,
-          role: "employee", // 新規ユーザーは employee 扱い
+          role: "employee",
           companyId,
         });
 
@@ -63,12 +58,9 @@ function Login({ setUserRole }) {
         if (docSnap.exists()) {
           const userData = docSnap.data();
 
-          // ✅ companyId を保存（リロード時も使えるように）
           localStorage.setItem("companyId", companyId);
-
           setUserRole(userData.role);
 
-          // ✅ ロールに応じてルーティング
           if (userData.role === "admin") {
             navigate("/admin");
           } else if (userData.role === "developer") {
@@ -76,7 +68,6 @@ function Login({ setUserRole }) {
           } else {
             navigate("/employee");
           }
-
         } else {
           alert("ユーザー情報が見つかりませんでした💦");
         }
@@ -141,18 +132,6 @@ function Login({ setUserRole }) {
       >
         {isNewUser ? "登録する✨" : "ログインする"}
       </button>
-
-      <div>
-        <small>
-          {isNewUser ? "すでにアカウントをお持ちの方は" : "アカウントをお持ちでない方は"}{" "}
-          <span
-            onClick={() => setIsNewUser(!isNewUser)}
-            style={{ color: "#66fcf1", cursor: "pointer", fontWeight: "bold" }}
-          >
-            こちら
-          </span>
-        </small>
-      </div>
     </div>
   );
 }
