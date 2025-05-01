@@ -7,12 +7,30 @@ import {
   query,
   orderBy,
 } from "firebase/firestore";
-
-import { fetchMessages, saveMessageToFirestore } from "./firebase";
-import { sendToOpenAI } from "./openai";
-
-import { db } from "./firebaseConfig"; // ✅ appではなくdbを使う
+import {
+  fetchMessages,
+  saveMessageToFirestore,
+  searchSimilarMessages,
+} from "./firebase";
+import { db } from "./firebaseConfig";
 import "./AdminView.css";
+
+import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
+import { PromptTemplate } from "@langchain/core/prompts";
+
+// ✅ テキスト整形関数
+function formatReplyText(text) {
+  return text
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\n(\（.*?\）)\n/g, "$1 ")
+    .replace(/([^\n])\n([^\n])/g, "$1 $2")
+    .replace(/([。！？])(?=[^\n」』））])/g, "$1\n")
+    .split("\n")
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .map(line => (line.length > 120 ? line.slice(0, 120) + "..." : line))
+    .join("\n");
+}
 
 function AdminView({ companyId, adminId }) {
   const [users, setUsers] = useState([]);
@@ -21,9 +39,18 @@ function AdminView({ companyId, adminId }) {
   const [input, setInput] = useState("");
   const [chatLog, setChatLog] = useState([]);
   const [summary, setSummary] = useState("");
-
   const [adminBot, setAdminBot] = useState(null);
   const [botPrompt, setBotPrompt] = useState("");
+
+  const llm = new ChatOpenAI({
+    modelName: "gpt-4.1",
+    temperature: 0.3,
+    openAIApiKey: process.env.REACT_APP_OPENAI_API_KEY,
+  });
+
+  const embeddings = new OpenAIEmbeddings({
+    openAIApiKey: process.env.REACT_APP_OPENAI_API_KEY,
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -44,7 +71,7 @@ function AdminView({ companyId, adminId }) {
       const adminRef = doc(db, "companies", companyId, "users", adminId);
       const adminSnap = await getDoc(adminRef);
       const adminData = adminSnap.data();
-      const myBot = adminData?.bot || "sato_ai";
+      const myBot = adminData?.bot || "default_bot";
       setAdminBot(myBot);
 
       const botRef = doc(db, "companies", companyId, "bots", myBot);
@@ -53,31 +80,33 @@ function AdminView({ companyId, adminId }) {
       setBotPrompt(prompt);
 
       const messageData = await fetchMessages(companyId, adminId);
-      const filteredLog = messageData.filter(
-        (msg) =>
-          (msg.sender === adminId && msg.receiver === myBot) ||
-          (msg.sender === myBot && msg.receiver === adminId)
-      );
+      const filteredLog = messageData
+        .filter(
+          (msg) =>
+            msg.botId === myBot &&
+            ((msg.sender === adminId && msg.receiver === myBot) ||
+              (msg.sender === myBot && msg.receiver === adminId))
+        )
+        .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
       setChatLog(filteredLog);
     };
 
-    if (companyId && adminId) {
-      loadData();
-    }
+    if (companyId && adminId) loadData();
   }, [companyId, adminId]);
 
   const handleAdminSend = async () => {
     if (!input.trim() || !adminBot) return;
 
+    const timestamp = new Date().toISOString();
     const newMessage = {
       sender: adminId,
       receiver: adminBot,
       text: input,
-      timestamp: new Date().toISOString(),
+      timestamp,
+      botId: adminBot,
     };
 
-    const updatedLog = [...chatLog, newMessage];
-    setChatLog(updatedLog);
+    setChatLog((prev) => [...prev, newMessage]);
     setInput("");
 
     await saveMessageToFirestore({
@@ -86,80 +115,117 @@ function AdminView({ companyId, adminId }) {
       ...newMessage,
     });
 
-    const openAIMessages = updatedLog.map((msg) => ({
-      role: msg.sender === adminId ? "user" : "assistant",
-      content: msg.text,
-    }));
+    try {
+      const similarMessages = await searchSimilarMessages({
+        companyId,
+        employeeId: adminId,
+        queryText: input,
+        topK: 5,
+        botId: adminBot,
+      });
 
-    const reply = await sendToOpenAI(openAIMessages, botPrompt);
+      const contextText = similarMessages
+        .map((msg) => `${msg.sender === adminId ? "管理職" : "分身AI"}: ${msg.text}`)
+        .join("\n")
+        .slice(-1500);
 
-    const aiReply = {
-      sender: adminBot,
-      receiver: adminId,
-      text: reply,
-      timestamp: new Date().toISOString(),
-    };
+      const prompt = new PromptTemplate({
+        inputVariables: ["systemPrompt", "context", "question"],
+        template: `
+{systemPrompt}
 
-    setChatLog((prev) => [...prev, aiReply]);
+あなたは管理職の壁打ちを受ける親しみやすい分身AIです。
+過去の会話を「なんとなく覚えている」程度に参照し、曖昧な返し（例:「たしか…」）も許容します。
 
-    await saveMessageToFirestore({
-      companyId,
-      employeeId: adminId,
-      ...aiReply,
-    });
+【過去ログ（参考）】
+{context}
+
+【管理職の入力】
+{question}
+
+返答は自然体で、120文字以内を原則とし、句読点ごとに適切に改行してください。
+        `,
+      });
+
+      const chain = prompt.pipe(llm);
+      const result = await chain.invoke({
+        systemPrompt: botPrompt,
+        context: contextText,
+        question: input,
+      });
+
+      const cleanedText = formatReplyText(result.text);
+
+      const aiReply = {
+        sender: adminBot,
+        receiver: adminId,
+        text: cleanedText,
+        timestamp: new Date().toISOString(),
+        botId: adminBot,
+      };
+
+      setChatLog((prev) => [...prev, aiReply]);
+
+      await saveMessageToFirestore({
+        companyId,
+        employeeId: adminId,
+        ...aiReply,
+      });
+    } catch (error) {
+      console.error("AI応答エラー:", error);
+    }
   };
 
   const handleSelectUser = async (user) => {
     setSelectedUser(user);
-
     try {
-      const logsRef = collection(
-        db,
-        "companies",
-        companyId,
-        "users",
-        user.employeeId,
-        "messages"
-      );
+      const logsRef = collection(db, "companies", companyId, "users", user.employeeId, "messages");
       const q = query(logsRef, orderBy("timestamp", "asc"));
       const snapshot = await getDocs(q);
       const logs = snapshot.docs.map((doc) => doc.data());
 
       const filtered = logs.filter(
         (msg) =>
-          (msg.sender === user.employeeId && msg.receiver === adminBot) ||
-          (msg.sender === adminBot && msg.receiver === user.employeeId)
+          msg.botId === adminBot &&
+          ((msg.sender === user.employeeId && msg.receiver === adminBot) ||
+            (msg.sender === adminBot && msg.receiver === user.employeeId))
       );
-
       setMessages(filtered);
 
-      const prompt = `
-以下は社員「${user.name}」とAIの会話ログです。この会話内容を分析し、以下の項目について日本語で簡潔にまとめてください：
+      const conversationLogs = filtered.map((m) => `${m.sender}: ${m.text}`).join("\n");
 
-1. モチベーション（高い / 普通 / 低い）
+      if (!conversationLogs.trim()) {
+        setSummary("❌ 会話ログが空です。総評を取得できません。");
+        return;
+      }
 
-2. コミュニケーション傾向（例：前向き、消極的、積極的、遠慮がちなど）
+      const prompt = new PromptTemplate({
+        inputVariables: ["log"],
+        template: `
+以下の社員との会話ログを元に、社員の状態を次の4項目で簡潔に分析してください。
 
-3. 抱えている悩みや課題
+1. モチベーション（高い・普通・低い）とその理由
+2. コミュニケーション傾向（例：積極的、控えめ、遠慮がち等）
+3. 抱えている悩み・課題（なければ「特になし」）
+4. 総合コメント（励ましや改善提案など、自然な日本語で簡潔に）
 
-4. 総合コメント（励ましや改善のヒントなど）
+ログ:
+{log}
+        `,
+      });
 
-【会話ログ】:
-${filtered.map((m) => `${m.sender}: ${m.text}`).join("\n")}
-`;
+      const chain = prompt.pipe(llm);
+      const result = await chain.invoke({ log: conversationLogs });
 
-      const result = await sendToOpenAI([{ role: "user", content: prompt }], botPrompt);
-      setSummary(result);
+      setSummary(result?.text ?? "❌ 総評の取得に失敗しました");
     } catch (error) {
       console.error("社員ログ取得エラー:", error);
-      setMessages([]);
       setSummary("❌ 総評の取得に失敗しました");
     }
   };
 
   return (
     <div className="admin-container">
-      {/* 左：プロフィールと総評 */}
       <div className="admin-sidebar">
         <img src="/logo.png" alt="Logo" className="admin-logo" />
         <h2>管理者</h2>
@@ -169,13 +235,12 @@ ${filtered.map((m) => `${m.sender}: ${m.text}`).join("\n")}
           <div style={{ marginTop: 20 }}>
             <h3>🧠 総評（{selectedUser.name}）</h3>
             <div className="admin-summary-box" style={{ whiteSpace: "pre-line" }}>
-              {summary ? summary : "分析中..."}
+              {summary}
             </div>
           </div>
         )}
       </div>
 
-      {/* 中央：壁打ちチャット */}
       <div className="admin-center">
         <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
 
@@ -183,11 +248,16 @@ ${filtered.map((m) => `${m.sender}: ${m.text}`).join("\n")}
           {chatLog.length === 0 ? (
             <p>※ChatGPTとの会話はまだありません</p>
           ) : (
-            chatLog.map((msg, i) => (
-              <div key={i} style={{ textAlign: "left", marginBottom: "10px" }}>
-                <strong>{msg.sender === adminId ? "管理職" : adminBot}</strong>: {msg.text}
-              </div>
-            ))
+            chatLog.map((msg, i) => {
+              const isAdmin = msg.sender === adminId;
+              const msgClass = isAdmin ? "admin-chat-message admin-chat-right" : "admin-chat-message admin-chat-left";
+              const senderLabel = isAdmin ? "管理職" : adminBot;
+              return (
+                <div key={i} className={msgClass}>
+                  <strong>{senderLabel}</strong>: {msg.text}
+                </div>
+              );
+            })
           )}
         </div>
 
@@ -202,14 +272,13 @@ ${filtered.map((m) => `${m.sender}: ${m.text}`).join("\n")}
         </div>
       </div>
 
-      {/* 右：社員ログとリスト */}
       <div className="admin-right">
         <h4>📖 社員ログ</h4>
         {selectedUser ? (
           <div className="admin-log-box">
             {messages.length > 0 ? (
               messages.map((msg, i) => (
-                <div key={i} style={{ textAlign: "left", marginBottom: "10px" }}>
+                <div key={i} style={{ textAlign: "left", marginBottom: "10px", whiteSpace: "pre-line" }}>
                   <strong>{msg.sender === adminBot ? adminBot : selectedUser.name}</strong>: {msg.text}
                 </div>
               ))
@@ -222,21 +291,15 @@ ${filtered.map((m) => `${m.sender}: ${m.text}`).join("\n")}
         )}
 
         <div className="admin-user-list">
-          {users.length > 0 ? (
-            users.map((user) => (
-              <div
-                key={user.employeeId}
-                onClick={() => handleSelectUser(user)}
-                className={`admin-user ${
-                  selectedUser?.employeeId === user.employeeId ? "active" : ""
-                }`}
-              >
-                💬 {user.name}
-              </div>
-            ))
-          ) : (
-            <p>社員データがありません。</p>
-          )}
+          {users.map((user) => (
+            <div
+              key={user.employeeId}
+              onClick={() => handleSelectUser(user)}
+              className={`admin-user ${selectedUser?.employeeId === user.employeeId ? "active" : ""}`}
+            >
+              💬 {user.name}
+            </div>
+          ))}
         </div>
       </div>
     </div>

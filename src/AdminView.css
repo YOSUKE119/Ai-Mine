@@ -25,17 +25,19 @@
   margin: 0 auto 20px;
 }
 
-/* 総評ボックス */
+/* ✅ 総評ボックス */
 .admin-summary-box {
   background: #ffffff;
   border-radius: 8px;
   padding: 15px;
   margin-top: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  white-space: pre-line; /* ✅ 改行文字（\n）を反映 */
-  text-align: left;        /* ✅ 左寄せ */
+  white-space: pre-line;
+  text-align: left;
   line-height: 1.6;
   font-size: 14px;
+  max-height: 500px;
+  overflow-y: auto;
 }
 
 /* 中央：壁打ちチャット */
@@ -57,16 +59,89 @@
   background: #f5f6f7;
   border-radius: 8px;
   margin-bottom: 10px;
-  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.admin-chat-box div {
-  text-align: left; /* ✅ メッセージを左寄せに */
-  margin-bottom: 10px;
-  line-height: 1.5;
+/* ✅ 吹き出し共通スタイル */
+.admin-chat-message {
+  max-width: 75%;
+  padding: 10px 15px;
+  border-radius: 16px;
+  background-color: #ffffff;
   font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-line;
+  position: relative;
+  border: 1px solid #ddd;
+  box-shadow: none;
+  text-align: left;
 }
 
+/* ✅ 吹き出し：AI側（左） */
+.admin-chat-left {
+  align-self: flex-start;
+}
+
+.admin-chat-left::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 14px;
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 8px solid #ffffff;
+  z-index: 2;
+}
+
+.admin-chat-left::after {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 13px;
+  width: 0;
+  height: 0;
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-right: 9px solid #ddd;
+  z-index: 1;
+}
+
+/* ✅ 吹き出し：管理職側（右） */
+.admin-chat-right {
+  align-self: flex-end;
+}
+
+.admin-chat-right::before {
+  content: "";
+  position: absolute;
+  right: -8px;
+  top: 14px;
+  width: 0;
+  height: 0;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 8px solid #ffffff;
+  z-index: 2;
+}
+
+.admin-chat-right::after {
+  content: "";
+  position: absolute;
+  right: -9px;
+  top: 13px;
+  width: 0;
+  height: 0;
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-left: 9px solid #ccc;
+  z-index: 1;
+}
+
+/* 入力欄 */
 .admin-input-box {
   display: flex;
   gap: 10px;
@@ -113,6 +188,7 @@
   margin-bottom: 20px;
   font-size: 14px;
   line-height: 1.5;
+  white-space: pre-line;
 }
 
 .admin-user-list {

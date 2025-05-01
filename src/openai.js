@@ -1,5 +1,9 @@
-// openai.js
-export async function sendToOpenAI(messages, systemPrompt) {
+// このファイルは非推奨になりました。
+// LangChain構成に完全移行したため、旧OpenAI直接呼び出しは不要です。
+// 必要であれば、下記のようなレガシー対応関数を一時的に使用可能です（非推奨）。
+
+/*
+export async function legacySendToOpenAI(messages, systemPrompt) {
   const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
 
   try {
@@ -12,7 +16,7 @@ export async function sendToOpenAI(messages, systemPrompt) {
       body: JSON.stringify({
         model: "gpt-4.1",
         messages: [
-          { role: "system", content: systemPrompt }, // ←ここが変わる！
+          { role: "system", content: systemPrompt },
           ...messages,
         ],
       }),
@@ -31,3 +35,4 @@ export async function sendToOpenAI(messages, systemPrompt) {
     return "ネットワークか設定に問題があるかもしれません💦";
   }
 }
+*/

@@ -3,9 +3,26 @@ import {
   fetchMessages,
   saveMessageToFirestore,
   fetchCompanyBots,
+  searchSimilarMessages,
 } from "./firebase";
-import { sendToOpenAI } from "./openai";
-import "./AdminView.css"; // ✅ CSS共通利用
+import "./AdminView.css";
+
+import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
+import { PromptTemplate } from "@langchain/core/prompts";
+
+// 🔧 テキスト整形関数
+function formatReplyText(text) {
+  return text
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\n(\（.*?\）)\n/g, "$1 ")
+    .replace(/([^\n])\n([^\n])/g, "$1 $2")
+    .replace(/([。！？])(?=[^\n」』））])/g, "$1\n")
+    .split("\n")
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .map(line => (line.length > 120 ? line.slice(0, 120) + "..." : line))
+    .join("\n");
+}
 
 function EmployeeDashboard({ companyId, employeeId }) {
   const [bots, setBots] = useState([]);
@@ -14,36 +31,55 @@ function EmployeeDashboard({ companyId, employeeId }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
 
-  // 🔸 Bot一覧取得
+  const llm = new ChatOpenAI({
+    temperature: 0.7,
+    modelName: "gpt-4.1",
+    openAIApiKey: process.env.REACT_APP_OPENAI_API_KEY,
+  });
+
+  const embeddings = new OpenAIEmbeddings({
+    openAIApiKey: process.env.REACT_APP_OPENAI_API_KEY,
+  });
+
   useEffect(() => {
     const getBots = async () => {
       const botData = await fetchCompanyBots(companyId);
-      setBotPrompts(botData);
-      setBots(Object.keys(botData));
+      const prompts = {};
+      for (const botId in botData) {
+        prompts[botId] = botData[botId].prompt;
+      }
+      setBotPrompts(prompts);
+      setBots(Object.keys(prompts));
     };
     if (companyId) getBots();
   }, [companyId]);
 
-  // 🔸 メッセージ取得
   useEffect(() => {
     const getMessages = async () => {
       const data = await fetchMessages(companyId, employeeId);
-      // 🔁 時系列順に並び替え
-      data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-      setMessages(data);
+      const filtered = data.filter(
+        (msg) =>
+          msg.botId === selectedBot &&
+          ((msg.sender === selectedBot && msg.receiver === employeeId) ||
+            (msg.sender === employeeId && msg.receiver === selectedBot))
+      );
+      filtered.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      setMessages(filtered);
     };
-    if (companyId && employeeId) getMessages();
-  }, [companyId, employeeId]);
+    if (companyId && employeeId && selectedBot) getMessages();
+  }, [companyId, employeeId, selectedBot]);
 
-  // 🔸 送信処理
   const handleSend = async () => {
     if (!input.trim() || !selectedBot) return;
+
+    const timestamp = new Date().toISOString();
 
     const userMsg = {
       sender: employeeId,
       receiver: selectedBot,
       text: input,
-      timestamp: new Date().toISOString(),
+      timestamp,
+      botId: selectedBot,
     };
 
     setMessages((prev) => [...prev, userMsg]);
@@ -55,43 +91,77 @@ function EmployeeDashboard({ companyId, employeeId }) {
       ...userMsg,
     });
 
-    const relevantMessages = [...messages, userMsg]
-      .filter(
-        (msg) =>
-          (msg.sender === employeeId && msg.receiver === selectedBot) ||
-          (msg.sender === selectedBot && msg.receiver === employeeId)
-      )
-      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    try {
+      const similarMessages = await searchSimilarMessages({
+        companyId,
+        employeeId,
+        queryText: input,
+        topK: 5,
+        botId: selectedBot,
+      });
 
-    const openAIMessages = relevantMessages.map((msg) => ({
-      role: msg.sender === employeeId ? "user" : "assistant",
-      content: msg.text,
-    }));
+      const contextText = similarMessages
+        .map((msg) => `${msg.sender}: ${msg.text}`)
+        .join("\n")
+        .slice(-1500);
 
-    const prompt =
-      botPrompts[selectedBot]?.prompt || "あなたは親切なAIです。";
+      const promptTemplate = new PromptTemplate({
+        inputVariables: ["systemPrompt", "context", "question"],
+        template: `
+{systemPrompt}
 
-    const replyText = await sendToOpenAI(openAIMessages, prompt);
+【参考ログ】
+{context}
 
-    const aiReply = {
-      sender: selectedBot,
-      receiver: employeeId,
-      text: replyText,
-      timestamp: new Date().toISOString(),
-    };
+【社員の質問】
+{question}
 
-    setMessages((prev) => [...prev, aiReply]);
+以下のルールを守って返答してください：
+- 120文字以内を目安にしてください。
+- 改行は適度に行い、不自然な空行は避けてください。
+- （表情）や（動作）は文の冒頭で改行せず、文と同じ行で返してください。
+        `,
+      });
 
-    await saveMessageToFirestore({
-      companyId,
-      employeeId,
-      ...aiReply,
-    });
+      const chain = promptTemplate.pipe(llm);
+      const result = await chain.invoke({
+        systemPrompt: botPrompts[selectedBot],
+        context: contextText,
+        question: input,
+      });
+
+      const cleanedText = formatReplyText(result.text);
+
+      const aiReply = {
+        sender: selectedBot,
+        receiver: employeeId,
+        text: cleanedText,
+        timestamp: new Date().toISOString(),
+        botId: selectedBot,
+      };
+
+      setMessages((prev) => [...prev, aiReply]);
+
+      await saveMessageToFirestore({
+        companyId,
+        employeeId,
+        ...aiReply,
+      });
+    } catch (error) {
+      console.error("AI応答エラー:", error);
+      const errorReply = {
+        sender: selectedBot,
+        receiver: employeeId,
+        text: "エラーが発生しました。",
+        timestamp: new Date().toISOString(),
+        botId: selectedBot,
+      };
+      setMessages((prev) => [...prev, errorReply]);
+    }
   };
 
   return (
     <div className="admin-container">
-      {/* 左：Bot選択 */}
       <div className="admin-sidebar">
         <h2>分身AI選択</h2>
         {bots.length === 0 ? (
@@ -109,34 +179,24 @@ function EmployeeDashboard({ companyId, employeeId }) {
         )}
       </div>
 
-      {/* 中央：チャットエリア */}
       <div className="admin-center">
-        <h2>
-          {selectedBot
-            ? `${selectedBot}とのチャット`
-            : "← 分身AIを選んでください"}
-        </h2>
+        <h2>{selectedBot ? `${selectedBot}とのチャット` : "← 分身AIを選んでください"}</h2>
 
         <div className="admin-chat-box">
           {selectedBot &&
-            messages
-              .filter(
-                (msg) =>
-                  msg.receiver === selectedBot ||
-                  msg.sender === selectedBot
-              )
-              .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-              .map((msg, index) => (
-                <div
-                  key={index}
-                  style={{
-                    textAlign: "left",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <strong>{msg.sender}</strong>: {msg.text}
-                </div>
-              ))}
+            messages.map((msg, index) => (
+              <div
+                key={index}
+                className={`admin-chat-message ${
+                  msg.sender === employeeId ? "admin-chat-right" : "admin-chat-left"
+                }`}
+              >
+                <strong>
+                  {msg.sender === employeeId ? "あなた" : selectedBot}
+                </strong>
+                : {msg.text}
+              </div>
+            ))}
         </div>
 
         {selectedBot && (

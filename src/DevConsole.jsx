@@ -1,3 +1,5 @@
+// src/DevConsole.jsx
+
 import React, { useState, useEffect } from "react";
 import {
   collection,
@@ -16,6 +18,9 @@ import { useNavigate } from "react-router-dom";
 import Papa from "papaparse";
 import { db, auth, app } from "./firebaseConfig";
 
+// ✅ LangChainチャット機能を追加
+import ChatBox from "./components/ChatBox";
+
 function DevConsole() {
   const [user, setUser] = useState(null);
   const [companies, setCompanies] = useState([]);
@@ -28,7 +33,6 @@ function DevConsole() {
   const [csvFile, setCsvFile] = useState(null);
   const navigate = useNavigate();
 
-  // 🔐 ログイン・認証確認
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -58,7 +62,6 @@ function DevConsole() {
     return () => unsubscribe();
   }, [navigate]);
 
-  // 🔹 会社一覧取得
   const fetchCompanies = async () => {
     try {
       const snap = await getDocs(collection(db, "companies"));
@@ -72,7 +75,6 @@ function DevConsole() {
     }
   };
 
-  // 🔹 Bot一覧取得（選択中会社）
   useEffect(() => {
     const fetchBots = async () => {
       if (!selectedCompany) return;
@@ -90,7 +92,6 @@ function DevConsole() {
     fetchBots();
   }, [selectedCompany]);
 
-  // ✅ 会社登録（手動）
   const handleAddCompany = async () => {
     if (!newCompanyId.trim() || !newCompanyName.trim()) {
       alert("会社IDと会社名を入力してください");
@@ -136,14 +137,12 @@ function DevConsole() {
     }
   };
 
-  // 🔹 Bot保存
   const handleSave = async (botName, prompt) => {
     if (!prompt.trim()) return;
     await setDoc(doc(db, "companies", selectedCompany, "bots", botName), { prompt });
     alert(`✅ 「${botName}」を保存しました`);
   };
 
-  // 🔹 Bot削除
   const handleDelete = async (botName) => {
     const confirmDelete = window.confirm(`本当に「${botName}」を削除しますか？`);
     if (!confirmDelete) return;
@@ -154,7 +153,6 @@ function DevConsole() {
     setBots(updated);
   };
 
-  // 🔹 Bot追加
   const handleAddBot = async () => {
     const name = newBotName.trim();
     const prompt = newPrompt.trim();
@@ -169,14 +167,12 @@ function DevConsole() {
     setNewPrompt("");
   };
 
-  // ✅ ログアウト処理
   const handleLogout = async () => {
     await signOut(auth);
     localStorage.removeItem("companyId");
     navigate("/");
   };
 
-  // ✅ CSV一括取り込み（会社、ユーザー、Bot）
   const handleImportCsv = () => {
     if (!csvFile) {
       alert("CSVファイルを選択してください");
@@ -197,7 +193,6 @@ function DevConsole() {
               continue;
             }
 
-            // 会社が未登録なら登録
             const companyRef = doc(db, "companies", companyId);
             const companySnap = await getDoc(companyRef);
             if (!companySnap.exists()) {
@@ -208,7 +203,6 @@ function DevConsole() {
               await fetchCompanies();
             }
 
-            // ユーザー登録
             try {
               const userCredential = await createUserWithEmailAndPassword(auth, email, password);
               const uid = userCredential.user.uid;
@@ -292,6 +286,12 @@ function DevConsole() {
           style={{ marginRight: 10 }}
         />
         <button onClick={handleImportCsv}>一括登録</button>
+      </div>
+
+      {/* ✅ LangChain ChatBox を表示 */}
+      <div style={{ marginBottom: 32 }}>
+        <h2>🧠 ChatBot (OpenAI + LangChain)</h2>
+        <ChatBox />
       </div>
 
       {selectedCompany && (

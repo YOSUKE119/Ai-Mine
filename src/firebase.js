@@ -1,4 +1,5 @@
-// firebase.js
+// firebase.js（LangChain v0.3.23 対応）
+
 import {
   collection,
   getDocs,
@@ -6,10 +7,13 @@ import {
   query,
   orderBy,
   setDoc,
-  doc
+  doc,
+  where,
 } from "firebase/firestore";
 
 import { db, auth } from "./firebaseConfig";
+import { OpenAIEmbeddings } from "@langchain/openai";
+import { cosineSimilarity } from "./utils";
 
 /**
  * 🔹 メッセージ取得（社員ごと・会社ごと）
@@ -39,7 +43,7 @@ export const fetchMessages = async (companyId, employeeId) => {
 };
 
 /**
- * 🔹 メッセージ保存（社員ごと・会社ごと）
+ * 🔹 メッセージ保存（＋ベクトルも保存）（botIdも保存）
  */
 export const saveMessageToFirestore = async ({
   companyId,
@@ -48,6 +52,7 @@ export const saveMessageToFirestore = async ({
   receiver,
   text,
   timestamp,
+  botId,
 }) => {
   try {
     const user = auth.currentUser;
@@ -67,11 +72,73 @@ export const saveMessageToFirestore = async ({
       receiver,
       text,
       timestamp,
+      botId, // 🧠 メッセージにもbotId保存！
     });
 
-    console.log("✅ Firebaseに保存されました");
+    // ベクトル保存
+    const vectorRef = doc(
+      db,
+      "companies",
+      companyId,
+      "users",
+      employeeId,
+      "vectors",
+      timestamp
+    );
+
+    const embeddings = new OpenAIEmbeddings({
+      openAIApiKey: process.env.REACT_APP_OPENAI_API_KEY,
+    });
+    const result = await embeddings.embedQuery(text);
+
+    await setDoc(vectorRef, {
+      vector: result,
+      text,
+      botId, // 🧠 ベクトルにもbotId保存！
+      createdAt: new Date().toISOString(),
+    });
+
+    console.log("✅ メッセージ＆ベクトル保存完了");
   } catch (error) {
-    console.error("❌ Firebase保存エラー:", error.code, error.message);
+    console.error("❌ 保存エラー:", error.code || error.message);
+  }
+};
+
+/**
+ * 🔹 類似メッセージ検索（RAG用）（botIdフィルタ付き）
+ */
+export const searchSimilarMessages = async ({ companyId, employeeId, queryText, topK = 3, botId }) => {
+  try {
+    const embeddings = new OpenAIEmbeddings({
+      openAIApiKey: process.env.REACT_APP_OPENAI_API_KEY,
+    });
+    const queryVector = await embeddings.embedQuery(queryText);
+
+    const vectorsRef = collection(
+      db,
+      "companies",
+      companyId,
+      "users",
+      employeeId,
+      "vectors"
+    );
+
+    const q = query(vectorsRef, where("botId", "==", botId)); // 🧠 botIdで絞る
+    const snapshot = await getDocs(q);
+
+    const results = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data();
+      const similarity = cosineSimilarity(queryVector, data.vector);
+      return {
+        text: data.text,
+        score: similarity,
+      };
+    });
+
+    return results.sort((a, b) => b.score - a.score).slice(0, topK);
+  } catch (err) {
+    console.error("❌ 類似検索エラー:", err);
+    return [];
   }
 };
 
@@ -93,13 +160,13 @@ export const fetchCompanyBots = async (companyId) => {
 
     return bots;
   } catch (error) {
-    console.error("❌ Bot一覧の取得エラー:", error.code, error.message);
+    console.error("❌ Bot一覧取得エラー:", error.code, error.message);
     return {};
   }
 };
 
 /**
- * 🔹 会社追加
+ * 🔹 会社登録
  */
 export const addCompany = async (companyId, companyName) => {
   try {
@@ -112,9 +179,9 @@ export const addCompany = async (companyId, companyName) => {
       createdAt: new Date().toISOString(),
     });
 
-    console.log("✅ 会社追加成功");
+    console.log("✅ 会社登録成功");
   } catch (err) {
-    console.error("❌ 会社追加エラー:", err.code, err.message);
+    console.error("❌ 会社登録エラー:", err.code, err.message);
     throw err;
   }
 };
