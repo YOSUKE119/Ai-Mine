@@ -43,7 +43,7 @@ function AdminView({ companyId, adminId }) {
 
   const llm = new ChatOpenAI({
     modelName: "gpt-4.1",
-    temperature: 0.3,
+    temperature: 0.75,
     openAIApiKey: process.env.REACT_APP_OPENAI_API_KEY,
   });
 
