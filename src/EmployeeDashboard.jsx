@@ -10,7 +10,7 @@ import "./AdminView.css";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 
-// 🔧 改行整形関数（切り捨てなし）
+// 🔧 テキスト整形関数（120文字制限付き）
 function formatReplyText(text) {
   return text
     .replace(/\n{3,}/g, "\n\n")
@@ -18,8 +18,9 @@ function formatReplyText(text) {
     .replace(/([^\n])\n([^\n])/g, "$1 $2")
     .replace(/([。！？])(?=[^\n」』））])/g, "$1\n")
     .split("\n")
-    .map(line => line.trim())
-    .filter(line => line.length > 0)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => (line.length > 120 ? line.slice(0, 120) + "..." : line))
     .join("\n");
 }
 
