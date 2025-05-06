@@ -10,7 +10,7 @@ import "./AdminView.css";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 
-// 🔧 改行整形のみ（文字数制限なし）
+// 🔧 改行整形関数（切り捨てなし）
 function formatReplyText(text) {
   return text
     .replace(/\n{3,}/g, "\n\n")
@@ -31,7 +31,7 @@ function EmployeeDashboard({ companyId, employeeId }) {
   const [input, setInput] = useState("");
 
   const llm = new ChatOpenAI({
-    temperature: 0.3,
+    temperature: 0.7,
     modelName: "gpt-4.1",
     openAIApiKey: process.env.REACT_APP_OPENAI_API_KEY,
   });
@@ -104,7 +104,6 @@ function EmployeeDashboard({ companyId, employeeId }) {
         .join("\n")
         .slice(-1500);
 
-      // プロンプト主導テンプレート（ルールを排除）
       const promptTemplate = new PromptTemplate({
         inputVariables: ["systemPrompt", "context", "question"],
         template: `
@@ -113,9 +112,14 @@ function EmployeeDashboard({ companyId, employeeId }) {
 【参考ログ】
 {context}
 
-【ユーザーの入力】
+【社員の質問】
 {question}
-        `.trim(),
+
+以下のルールを守って返答してください：
+- 120文字以内を目安にしてください。
+- 改行は適度に行い、不自然な空行は避けてください。
+- （表情）や（動作）は文の冒頭で改行せず、文と同じ行で返してください。
+`.trim(),
       });
 
       const chain = promptTemplate.pipe(llm);

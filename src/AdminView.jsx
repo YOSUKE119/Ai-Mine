@@ -18,7 +18,7 @@ import "./AdminView.css";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 
-// 🔧 整形関数（切り捨てなし）
+// ✅ 整形関数（自然な整形）
 function formatReplyText(text) {
   return text
     .replace(/\n{3,}/g, "\n\n")
@@ -26,8 +26,8 @@ function formatReplyText(text) {
     .replace(/([^\n])\n([^\n])/g, "$1 $2")
     .replace(/([。！？])(?=[^\n」』））])/g, "$1\n")
     .split("\n")
-    .map(line => line.trim())
-    .filter(line => line.length > 0)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
     .join("\n");
 }
 
@@ -220,6 +220,7 @@ function AdminView({ companyId, adminId }) {
 
   return (
     <div className="admin-container">
+      {/* 左サイドバー */}
       <div className="admin-sidebar">
         <img src="/logo.png" alt="Logo" className="admin-logo" />
         <h2>管理者</h2>
@@ -235,6 +236,7 @@ function AdminView({ companyId, adminId }) {
         )}
       </div>
 
+      {/* 中央チャットビュー */}
       <div className="admin-center">
         <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
 
@@ -244,7 +246,9 @@ function AdminView({ companyId, adminId }) {
           ) : (
             chatLog.map((msg, i) => {
               const isAdmin = msg.sender === adminId;
-              const msgClass = isAdmin ? "admin-chat-message admin-chat-right" : "admin-chat-message admin-chat-left";
+              const msgClass = isAdmin
+                ? "admin-chat-message admin-chat-right"
+                : "admin-chat-message admin-chat-left";
               const senderLabel = isAdmin ? "管理職" : adminBot;
               return (
                 <div key={i} className={msgClass}>
@@ -266,6 +270,7 @@ function AdminView({ companyId, adminId }) {
         </div>
       </div>
 
+      {/* 右パネル：ユーザ一覧とログ */}
       <div className="admin-right">
         <h4>📖 社員ログ</h4>
         {selectedUser ? (
