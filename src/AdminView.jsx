@@ -18,7 +18,7 @@ import "./AdminView.css";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 
-// ✅ テキスト整形関数
+// 🔧 整形関数（切り捨てなし）
 function formatReplyText(text) {
   return text
     .replace(/\n{3,}/g, "\n\n")
@@ -28,7 +28,6 @@ function formatReplyText(text) {
     .split("\n")
     .map(line => line.trim())
     .filter(line => line.length > 0)
-    .map(line => (line.length > 120 ? line.slice(0, 120) + "..." : line))
     .join("\n");
 }
 
@@ -134,17 +133,12 @@ function AdminView({ companyId, adminId }) {
         template: `
 {systemPrompt}
 
-あなたは管理職の壁打ちを受ける親しみやすい分身AIです。
-過去の会話を「なんとなく覚えている」程度に参照し、曖昧な返し（例:「たしか…」）も許容します。
-
 【過去ログ（参考）】
 {context}
 
 【管理職の入力】
 {question}
-
-返答は自然体で、120文字以内を原則とし、句読点ごとに適切に改行してください。
-        `,
+        `.trim(),
       });
 
       const chain = prompt.pipe(llm);
@@ -204,14 +198,14 @@ function AdminView({ companyId, adminId }) {
         template: `
 以下の社員との会話ログを元に、社員の状態を次の4項目で簡潔に分析してください。
 
-1. モチベーション（高い・普通・低い）とその理由
-2. コミュニケーション傾向（例：積極的、控えめ、遠慮がち等）
-3. 抱えている悩み・課題（なければ「特になし」）
+1. モチベーション（高い・普通・低い）とその理由  
+2. コミュニケーション傾向（例：積極的、控えめ、遠慮がち等）  
+3. 抱えている悩み・課題（なければ「特になし」）  
 4. 総合コメント（励ましや改善提案など、自然な日本語で簡潔に）
 
 ログ:
 {log}
-        `,
+        `.trim(),
       });
 
       const chain = prompt.pipe(llm);

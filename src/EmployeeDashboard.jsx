@@ -10,7 +10,7 @@ import "./AdminView.css";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 
-// 🔧 テキスト整形関数
+// 🔧 改行整形のみ（文字数制限なし）
 function formatReplyText(text) {
   return text
     .replace(/\n{3,}/g, "\n\n")
@@ -20,7 +20,6 @@ function formatReplyText(text) {
     .split("\n")
     .map(line => line.trim())
     .filter(line => line.length > 0)
-    .map(line => (line.length > 120 ? line.slice(0, 120) + "..." : line))
     .join("\n");
 }
 
@@ -105,6 +104,7 @@ function EmployeeDashboard({ companyId, employeeId }) {
         .join("\n")
         .slice(-1500);
 
+      // プロンプト主導テンプレート（ルールを排除）
       const promptTemplate = new PromptTemplate({
         inputVariables: ["systemPrompt", "context", "question"],
         template: `
@@ -113,14 +113,9 @@ function EmployeeDashboard({ companyId, employeeId }) {
 【参考ログ】
 {context}
 
-【社員の質問】
+【ユーザーの入力】
 {question}
-
-以下のルールを守って返答してください：
-- 120文字以内を目安にしてください。
-- 改行は適度に行い、不自然な空行は避けてください。
-- （表情）や（動作）は文の冒頭で改行せず、文と同じ行で返してください。
-        `,
+        `.trim(),
       });
 
       const chain = promptTemplate.pipe(llm);
@@ -191,10 +186,7 @@ function EmployeeDashboard({ companyId, employeeId }) {
                   msg.sender === employeeId ? "admin-chat-right" : "admin-chat-left"
                 }`}
               >
-                <strong>
-                  {msg.sender === employeeId ? "あなた" : selectedBot}
-                </strong>
-                : {msg.text}
+                <strong>{msg.sender === employeeId ? "あなた" : selectedBot}</strong>: {msg.text}
               </div>
             ))}
         </div>
