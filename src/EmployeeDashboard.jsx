@@ -10,7 +10,7 @@ import "./AdminView.css";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 
-// 🔧 テキスト整形関数（改行調整のみ、文字数制限なし）
+// 🔧 整形関数（改行のみ、長さは制限しない）
 function formatReplyText(text) {
   return text
     .replace(/\n{3,}/g, "\n\n")
@@ -18,8 +18,8 @@ function formatReplyText(text) {
     .replace(/([^\n])\n([^\n])/g, "$1 $2")
     .replace(/([。！？])(?=[^\n」』））])/g, "$1\n")
     .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
     .join("\n");
 }
 
@@ -112,13 +112,12 @@ function EmployeeDashboard({ companyId, employeeId }) {
 【参考ログ】
 {context}
 
-【社員の質問】
+【社員の入力】
 {question}
 
-返答は丁寧で自然な日本語で書いてください。
-文章の長さは内容に応じて調整し、必要なら簡潔に、必要なら十分に詳しく回答してください。
-改行は適切に行い、不自然な空行は避けてください。
-（表情）や（動作）は文の冒頭で改行せず、文と同じ行で返してください。
+返答は自然な日本語で書いてください。
+長さは内容に応じて調整し、必要なら簡潔に、必要なら詳しく答えてください。
+改行は適切に行い、（表情）や（動作）は文と同じ行に記述してください。
 `.trim(),
       });
 
