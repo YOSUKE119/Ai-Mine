@@ -18,7 +18,7 @@ import "./AdminView.css";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 
-// ✅ テキスト整形関数（自然体、120文字制限）
+// ✅ テキスト整形関数（文字数制限なし）
 function formatReplyText(text) {
   return text
     .replace(/\n{3,}/g, "\n\n")
@@ -28,7 +28,6 @@ function formatReplyText(text) {
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
-    .map((line) => (line.length > 120 ? line.slice(0, 120) + "..." : line))
     .join("\n");
 }
 
@@ -134,16 +133,16 @@ function AdminView({ companyId, adminId }) {
         template: `
 {systemPrompt}
 
-あなたは管理職の壁打ちを受ける親しみやすい分身AIです。
-過去の会話を「なんとなく覚えている」程度に参照し、曖昧な返し（例:「たしか…」）も許容します。
-
 【過去ログ（参考）】
 {context}
 
 【管理職の入力】
 {question}
 
-返答は自然体で、120文字以内を原則とし、句読点ごとに適切に改行してください。
+返答は丁寧で自然な日本語で書いてください。
+文章の長さは内容に応じて調整し、必要なら簡潔に、必要なら十分に詳しく回答してください。
+改行は適切に行い、不自然な空行は避けてください。
+（表情）や（動作）は文の冒頭で改行せず、文と同じ行で返してください。
 `.trim(),
       });
 
@@ -226,7 +225,7 @@ function AdminView({ companyId, adminId }) {
 
   return (
     <div className="admin-container">
-      {/* 左パネル */}
+      {/* 左サイドバー */}
       <div className="admin-sidebar">
         <img src="/logo.png" alt="Logo" className="admin-logo" />
         <h2>管理者</h2>
@@ -242,7 +241,7 @@ function AdminView({ companyId, adminId }) {
         )}
       </div>
 
-      {/* 中央チャット */}
+      {/* 中央チャットビュー */}
       <div className="admin-center">
         <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
 

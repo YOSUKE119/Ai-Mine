@@ -10,7 +10,7 @@ import "./AdminView.css";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
 
-// 🔧 テキスト整形関数（120文字制限付き）
+// 🔧 テキスト整形関数（改行調整のみ、文字数制限なし）
 function formatReplyText(text) {
   return text
     .replace(/\n{3,}/g, "\n\n")
@@ -20,7 +20,6 @@ function formatReplyText(text) {
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
-    .map((line) => (line.length > 120 ? line.slice(0, 120) + "..." : line))
     .join("\n");
 }
 
@@ -116,10 +115,10 @@ function EmployeeDashboard({ companyId, employeeId }) {
 【社員の質問】
 {question}
 
-以下のルールを守って返答してください：
-- 120文字以内を目安にしてください。
-- 改行は適度に行い、不自然な空行は避けてください。
-- （表情）や（動作）は文の冒頭で改行せず、文と同じ行で返してください。
+返答は丁寧で自然な日本語で書いてください。
+文章の長さは内容に応じて調整し、必要なら簡潔に、必要なら十分に詳しく回答してください。
+改行は適切に行い、不自然な空行は避けてください。
+（表情）や（動作）は文の冒頭で改行せず、文と同じ行で返してください。
 `.trim(),
       });
 
