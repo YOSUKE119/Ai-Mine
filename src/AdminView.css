@@ -11,18 +11,62 @@
   width: 25%;
   background: #f0f2f5;
   color: #1c1e21;
-  padding: 20px;
+  padding: 10px 20px 20px 20px; /* 上部 padding を10pxに圧縮 */
+
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .admin-sidebar h2 {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 4px; /* ← 以前の20pxを4pxに変更して詰める */
+  margin-bottom: 4px; /* ロゴとの間隔も最小限に */
 }
 
 .admin-logo {
   width: 120px;
   display: block;
-  margin: 0 auto 20px;
+  margin: 0 auto 8px; /* 下の余白も縮小 */
+}
+
+/* 🔘 分析タブボタン */
+.tab-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 6px; /* 縮める */
+}
+
+.tab-button {
+  padding: 8px 16px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #f5f5f5;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+  background-color: #ddd;
+}
+
+.tab-button.active {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
+}
+
+/* 🧠 総評ラッパー */
+.admin-summary-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin-top: 10px;
 }
 
 /* ✅ 総評ボックス */
@@ -30,14 +74,16 @@
   background: #ffffff;
   border-radius: 8px;
   padding: 15px;
-  margin-top: 20px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   white-space: pre-line;
   text-align: left;
   line-height: 1.6;
   font-size: 14px;
-  max-height: 500px;
+
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  max-height: 600px;
 }
 
 /* 中央：壁打ちチャット */
