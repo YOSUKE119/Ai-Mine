@@ -556,15 +556,41 @@ const generateSelfAnalysis = async (logsText) => {
         <h4>📖 社員ログ</h4>
         {selectedUser ? (
           <div className="admin-log-box">
-            {messages.length > 0 ? (
-              messages.map((msg, i) => (
-                <div key={i} style={{ marginBottom: "10px", whiteSpace: "pre-line" }}>
-                  <strong>{msg.sender === adminBot ? adminBot : selectedUser.name}</strong>: {msg.text}
-                </div>
-              ))
-            ) : (
-              <p>この社員のログはまだありません。</p>
-            )}
+{messages.length > 0 ? (
+  <div className="admin-chat-box">
+    {messages.map((msg, i) => {
+      const isEmployee = msg.sender === selectedUser.employeeId;
+      const msgClass = isEmployee
+        ? "admin-chat-message admin-chat-right"
+        : "admin-chat-message admin-chat-left";
+      const senderLabel = isEmployee ? selectedUser.name : adminBot;
+      return (
+        <div key={i} className={msgClass}>
+          <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              h1: ({ node, ...props }) => <h1 className="chat-heading" {...props} />,
+              h2: ({ node, ...props }) => <h2 className="chat-heading" {...props} />,
+              h3: ({ node, ...props }) => <h3 className="chat-heading" {...props} />,
+              ul: ({ node, ...props }) => <ul className="chat-list" {...props} />,
+              li: ({ node, ...props }) => <li className="chat-list-item" {...props} />,
+              p: ({ node, ...props }) => <p className="chat-paragraph" {...props} />,
+              strong: ({ node, ...props }) => <strong style={{ fontWeight: "bold" }} {...props} />,
+              input: ({ node, ...props }) => (
+                <input type="checkbox" disabled style={{ marginRight: '6px' }} {...props} />
+              ),
+            }}
+          >
+            {formatReplyText(msg.text)}
+          </ReactMarkdown>
+        </div>
+      );
+    })}
+  </div>
+) : (
+  <p>この社員のログはまだありません。</p>
+)}
           </div>
         ) : (
           <p>社員を選んでログを見る</p>
