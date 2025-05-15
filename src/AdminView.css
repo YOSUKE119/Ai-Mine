@@ -279,16 +279,17 @@
 .admin-input-box textarea {
   flex: 1;
   padding: 4px 8px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
   font-size: 0.95rem;
   line-height: 1.2;
+  border: 1px solid #ccc;
+  border-radius: 6px;
   resize: none;
   overflow: hidden;
   transition: height 0.2s ease;
-  box-sizing: border-box; /* ✅ 必須 */
-  min-height: 28px;
-  max-height: 300px;       /* ✅ 任意だがおすすめ */
+  box-sizing: border-box;   /* ✅ scrollHeight計算安定化に必須 */
+  min-height: 28px;         /* ✅ 初期1行分の高さ */
+  max-height: 300px;        /* ✅ 長文でも暴走しないよう制限 */
+  background-color: #fff;   /* ✅ 見た目を明示（ブラウザ差分対策） */
 }
 .admin-input-box button {
   padding: 10px 20px;

@@ -57,15 +57,12 @@ const handleInputChange = (e) => {
 
   const textarea = textareaRef.current;
   if (textarea) {
-    textarea.style.height = "auto"; // 一旦リセット
+    // ✅ 一旦リセット（これがないとscrollHeightが増え続ける）
+    textarea.style.height = "auto";
 
+    // ✅ scrollHeight を取得して高さを再設定
     const newHeight = textarea.scrollHeight;
-
-    // ✅ 高さが変わるときだけ再設定（無駄な更新を防ぐ）
-    const currentHeight = parseInt(textarea.style.height, 10);
-    if (currentHeight !== newHeight) {
-      textarea.style.height = `${newHeight}px`;
-    }
+    textarea.style.height = `${newHeight}px`;
   }
 };
 
