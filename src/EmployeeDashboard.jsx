@@ -31,7 +31,7 @@ function EmployeeDashboard({ companyId, employeeId }) {
   const [input, setInput] = useState("");
 
   const llm = new ChatOpenAI({
-    temperature: 0.7,
+    temperature: 0.3,
     modelName: "gpt-4.1",
     openAIApiKey: process.env.REACT_APP_OPENAI_API_KEY,
   });
