@@ -47,7 +47,27 @@ function formatReplyText(text) {
 }
 
 function AdminView({ companyId, adminId }) {
-  const chatEndRef = useRef(null); // ✅ ← これを追加！（一番上）
+  const chatEndRef = useRef(null);           // ✅ チャット最下部へのスクロール用
+  const textareaRef = useRef(null);          // ✅ 入力欄の自動拡張用
+
+  // ✅ 入力欄変更時の高さ自動調整処理
+const handleInputChange = (e) => {
+  const newValue = e.target.value;
+  setInput(newValue);
+
+  const textarea = textareaRef.current;
+  if (textarea) {
+    textarea.style.height = "auto"; // 一旦リセット
+
+    const newHeight = textarea.scrollHeight;
+
+    // ✅ 高さが変わるときだけ再設定（無駄な更新を防ぐ）
+    const currentHeight = parseInt(textarea.style.height, 10);
+    if (currentHeight !== newHeight) {
+      textarea.style.height = `${newHeight}px`;
+    }
+  }
+};
 
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
@@ -522,11 +542,13 @@ const generateSelfAnalysis = async (logsText) => {
 
 {/* 入力ボックス */}
 <div className="admin-input-box">
-  <input
-    type="text"
+  <textarea
+    ref={textareaRef}
     value={input}
-    onChange={(e) => setInput(e.target.value)}
+    onChange={handleInputChange}
     placeholder="メッセージを入力..."
+    rows={1}
+    className="auto-resize-textarea"
   />
   <button onClick={handleAdminSend}>送信</button>
 </div>
