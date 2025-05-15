@@ -1,4 +1,4 @@
-/* 全体レイアウト */
+/* ========== 全体レイアウト ========== */
 .admin-container {
   display: flex;
   height: 100vh;
@@ -6,13 +6,12 @@
   background-color: #f0f2f5;
 }
 
-/* 左：プロフィールと総評 */
+/* 左：サイドバー */
 .admin-sidebar {
   width: 25%;
   background: #f0f2f5;
   color: #1c1e21;
-  padding: 10px 20px 20px 20px; /* 上部 padding を10pxに圧縮 */
-
+  padding: 10px 20px 20px;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -22,22 +21,21 @@
 
 .admin-sidebar h2 {
   text-align: center;
-  margin-top: 4px; /* ← 以前の20pxを4pxに変更して詰める */
-  margin-bottom: 4px; /* ロゴとの間隔も最小限に */
+  margin: 4px 0;
 }
 
 .admin-logo {
   width: 120px;
   display: block;
-  margin: 0 auto 8px; /* 下の余白も縮小 */
+  margin: 0 auto 8px;
 }
 
-/* 🔘 分析タブボタン */
+/* タブボタン */
 .tab-buttons {
   display: flex;
   justify-content: center;
   gap: 12px;
-  margin-top: 6px; /* 縮める */
+  margin-top: 6px;
 }
 
 .tab-button {
@@ -60,7 +58,7 @@
   border-color: #007bff;
 }
 
-/* 🧠 総評ラッパー */
+/* ========== 総評エリア ========== */
 .admin-summary-wrapper {
   flex: 1;
   display: flex;
@@ -69,24 +67,41 @@
   margin-top: 10px;
 }
 
-/* ✅ 総評ボックス */
 .admin-summary-box {
   background: #ffffff;
   border-radius: 8px;
   padding: 15px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  white-space: pre-line;
-  text-align: left;
-  line-height: 1.6;
   font-size: 14px;
-
+  line-height: 1.4;
+  text-align: left;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   max-height: 600px;
 }
 
-/* 中央：壁打ちチャット */
+/* 総評内のMarkdown調整 */
+.admin-summary-box h1,
+.admin-summary-box h2,
+.admin-summary-box h3 {
+  margin: 0.4em 0;
+  font-size: 1em;
+  line-height: 1.4;
+}
+
+.admin-summary-box p,
+.admin-summary-box li {
+  margin: 0.2em 0;
+  line-height: 1.4;
+}
+
+.admin-summary-box ul {
+  margin: 0.2em 0;
+  padding-left: 1.4em;
+}
+
+/* ========== 中央チャット ========== */
 .admin-center {
   width: 40%;
   padding: 20px;
@@ -108,86 +123,150 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  max-height: 700px;
 }
 
-/* ✅ 吹き出し共通スタイル */
+/* 吹き出し共通 */
 .admin-chat-message {
   max-width: 75%;
   padding: 10px 15px;
   border-radius: 16px;
   background-color: #ffffff;
   font-size: 14px;
-  line-height: 1.5;
-  white-space: pre-line;
+  line-height: 1.4;
+  white-space: pre-wrap; /* ✅ 改行・空白維持しつつ折り返し */
+  word-break: break-word;
   position: relative;
   border: 1px solid #ddd;
-  box-shadow: none;
   text-align: left;
 }
 
-/* ✅ 吹き出し：AI側（左） */
+/* 吹き出し（左） */
 .admin-chat-left {
   align-self: flex-start;
 }
-
 .admin-chat-left::before {
   content: "";
   position: absolute;
   left: -8px;
   top: 14px;
-  width: 0;
-  height: 0;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-right: 8px solid #ffffff;
+  border: 8px solid transparent;
+  border-right-color: #ffffff;
   z-index: 2;
 }
-
 .admin-chat-left::after {
   content: "";
   position: absolute;
   left: -9px;
   top: 13px;
-  width: 0;
-  height: 0;
-  border-top: 9px solid transparent;
-  border-bottom: 9px solid transparent;
-  border-right: 9px solid #ddd;
+  border: 9px solid transparent;
+  border-right-color: #ddd;
   z-index: 1;
 }
 
-/* ✅ 吹き出し：管理職側（右） */
+/* 吹き出し（右） */
 .admin-chat-right {
   align-self: flex-end;
 }
-
 .admin-chat-right::before {
   content: "";
   position: absolute;
   right: -8px;
   top: 14px;
-  width: 0;
-  height: 0;
-  border-top: 8px solid transparent;
-  border-bottom: 8px solid transparent;
-  border-left: 8px solid #ffffff;
+  border: 8px solid transparent;
+  border-left-color: #ffffff;
   z-index: 2;
 }
-
 .admin-chat-right::after {
   content: "";
   position: absolute;
   right: -9px;
   top: 13px;
-  width: 0;
-  height: 0;
-  border-top: 9px solid transparent;
-  border-bottom: 9px solid transparent;
-  border-left: 9px solid #ccc;
+  border: 9px solid transparent;
+  border-left-color: #ccc;
   z-index: 1;
 }
 
-/* 入力欄 */
+/* 吹き出し内のMarkdown */
+.admin-chat-message h1,
+.admin-chat-message h2,
+.admin-chat-message h3 {
+  margin: 0.2em 0;
+  font-size: 1em;
+  line-height: 1.4;
+}
+
+/* 通常段落 */
+.admin-chat-message p {
+  margin: 0.1em 0 !important;
+  line-height: 1.4;
+  font-weight: normal; /* ← 念のため通常に */
+}
+
+/* リストアイテム全体 */
+.admin-chat-message li {
+  margin: 0.2em 0;
+  line-height: 1.4;
+  font-weight: bold; /* ✅ 番号付きリストのタイトルを太字に */
+}
+
+/* 箇条書きリスト */
+.admin-chat-message ul {
+  margin: 0.2em 0;
+  padding-left: 1.4em;
+}
+
+/* 番号付きリスト */
+.admin-chat-message ol {
+  margin: 0.2em 0;
+  padding-left: 1.4em;
+}
+
+/* ✅ リストの見出し部分（1段落目のstrong）を太字に */
+.admin-chat-message ol li > p:first-child > strong {
+  font-weight: bold;
+}
+
+/* ✅ ぶら下がり段落（2段落目以降）をインデント揃え */
+.admin-chat-message ol li > p:not(:first-child) {
+  text-indent: -1.4em;
+  padding-left: 1.4em;
+  margin: 0.2em 0;
+  line-height: 1.4;
+  font-weight: normal;
+}
+
+/* ✅ 段落 + リストの間を詰める */
+.admin-chat-message p + ol,
+.admin-chat-message p + ul {
+  margin-top: 0.2em !important;
+}
+
+/* ✅ リスト直後の段落を左揃えに戻す */
+.admin-chat-message ul + p,
+.admin-chat-message ol + p {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
+
+/* 引用 */
+.admin-chat-message blockquote {
+  border-left: 4px solid #ccc;
+  padding-left: 10px;
+  margin: 0.4em 0;
+  color: #555;
+}
+
+/* インラインコード */
+.admin-chat-message code {
+  background: #f4f4f4;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-family: monospace;
+}
+
+
+/* ========== 入力欄 ========== */
 .admin-input-box {
   display: flex;
   gap: 10px;
@@ -211,12 +290,11 @@
   border-radius: 6px;
   cursor: pointer;
 }
-
 .admin-input-box button:hover {
   background-color: #0056b3;
 }
 
-/* 右：社員ログと社員一覧 */
+/* ========== 右パネル（ログ） ========== */
 .admin-right {
   width: 35%;
   padding: 20px;
@@ -234,7 +312,7 @@
   margin-bottom: 20px;
   font-size: 14px;
   line-height: 1.5;
-  white-space: pre-line;
+  white-space: pre-wrap;
 }
 
 .admin-user-list {
@@ -256,11 +334,32 @@
   color: #1c1e21;
   transition: background-color 0.2s;
 }
-
 .admin-user:hover {
   background-color: #d0d2d6;
 }
-
 .admin-user.active {
   background-color: #d8dadf;
+}
+
+/* 補助コンポーネント */
+.chat-heading {
+  font-weight: bold;
+  margin: 1em 0 0.5em;
+  font-size: 1.1em;
+}
+
+.chat-list {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+.chat-list-item {
+  margin-bottom: 0.3em;
+}
+.chat-paragraph {
+  margin: 0.2em 0;
+  line-height: 1.5;
+}
+.chat-sender {
+  margin-bottom: 4px;
+  font-weight: bold;
 }

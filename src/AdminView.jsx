@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react"; // ← useRef を必ず含める
 import {
   collection,
   getDocs,
@@ -17,21 +17,38 @@ import "./AdminView.css";
 
 import { ChatOpenAI } from "@langchain/openai";
 import { PromptTemplate } from "@langchain/core/prompts";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import rehypeHighlight from 'rehype-highlight';
+
 
 // テキスト整形
 function formatReplyText(text) {
   return text
+    // 表情（にこっと笑って）などをすべて削除
+    .replace(/\（.*?[\u3040-\u30ffー]+.*?\）/g, "")
+    // 改行3回以上 → 2回に
     .replace(/\n{3,}/g, "\n\n")
-    .replace(/\n(\（.*?\）)\n/g, "$1 ")
-    .replace(/([^\n])\n([^\n])/g, "$1 $2")
+    // 文末に改行（。！？のあとにカッコが続かない場合）
     .replace(/([。！？])(?=[^\n」』））])/g, "$1\n")
+    // 番号 + 改行 + 本文 → 1行に
+    .replace(/(^|\n)(\d+)\.\s*\n([^\n])/g, '$1$2. $3')
+    // 番号リスト直後に説明文が続くパターン → 詰める
+    .replace(/^(\d+\..+?)\n(?=\S)/gm, '$1\n')
+    // 番号リスト前の余分な空行を1行に
+    .replace(/\n{2,}(?=\d+\.)/g, '\n\n')
+    // 番号リスト内で詰まりすぎているところを調整
+    .replace(/(?<=\n\d+\..+?)\n(?=\S)/g, '\n')
+    // 行末の空白削除
     .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
+    .map((line) => line.trimEnd())
     .join("\n");
 }
 
 function AdminView({ companyId, adminId }) {
+  const chatEndRef = useRef(null); // ✅ ← これを追加！（一番上）
+
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -41,13 +58,20 @@ function AdminView({ companyId, adminId }) {
   const [adminBot, setAdminBot] = useState(null);
   const [botPrompt, setBotPrompt] = useState("");
   const [activeTab, setActiveTab] = useState("職員分析");
-  const [isLoading, setIsLoading] = useState(false); // 🔄 分析中表示用のローディングステート
+  const [isLoading, setIsLoading] = useState(false);
 
   const llm = new ChatOpenAI({
     modelName: "gpt-4.1",
     temperature: 0.3,
     openAIApiKey: process.env.REACT_APP_OPENAI_API_KEY,
   });
+
+  // ✅ chatLog が更新されたら最下部へスクロール
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chatLog]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -100,87 +124,110 @@ function AdminView({ companyId, adminId }) {
     if (companyId && adminId) loadData();
   }, [companyId, adminId]);
 
-  const handleAdminSend = async () => {
-    if (!input.trim() || !adminBot || !botPrompt) return;
+const handleAdminSend = async () => {
+  if (!input.trim() || !adminBot || !botPrompt) return;
 
-    const timestamp = new Date().toISOString();
-    const newMessage = {
-      sender: adminId,
-      receiver: adminBot,
-      text: input,
-      timestamp,
+  const timestamp = new Date().toISOString();
+  const newMessage = {
+    sender: adminId,
+    receiver: adminBot,
+    text: input,
+    timestamp,
+    botId: adminBot,
+  };
+
+  // 自分の発言をチャットに追加
+  setChatLog((prev) => [...prev, newMessage]);
+  setInput("");
+
+  // Firestoreに保存
+  await saveMessageToFirestore({
+    companyId,
+    employeeId: adminId,
+    ...newMessage,
+  });
+
+  try {
+    // 直近のチャットログ10件を取得
+    const recentContext = chatLog
+      .slice(-10)
+      .map((msg) => `${msg.sender === adminId ? "あなた" : "分身AI"}: ${msg.text}`)
+      .join("\n");
+
+    // 類似メッセージを取得
+    const similarMessages = await searchSimilarMessages({
+      companyId,
+      employeeId: adminId,
+      queryText: input,
+      topK: 5,
+      botId: adminBot,
+    });
+
+    const similarContext = similarMessages
+      .map((msg) => `${msg.sender === adminId ? "あなた" : "分身AI"}: ${msg.text}`)
+      .join("\n");
+
+    // 文脈を合成して1500文字以内に調整
+    const contextText = (recentContext + "\n" + similarContext).slice(-1500);
+
+    // プロンプトテンプレートの準備
+    const prompt = new PromptTemplate({
+      inputVariables: ["systemPrompt", "context", "question"],
+      template: `
+{systemPrompt}
+
+【直前の会話や参考ログ】
+{context}
+
+【あなたの入力】
+{question}
+
+--- 指示 ---
+- 丁寧で自然な日本語で返してください。
+- 内容に応じて簡潔または詳細に回答してください。
+- （表情）や（動作）は文と同じ行に書き、空行は避けてください。
+- ユーザーが何について話しているかを意識し、必要があれば前の流れをくんで回答してください。
+`.trim(),
+    });
+
+    const chain = prompt.pipe(llm);
+    const result = await chain.invoke({
+      systemPrompt: botPrompt,
+      context: contextText,
+      question: input,
+    });
+
+    const cleanedText = formatReplyText(result.text);
+
+    const aiReply = {
+      sender: adminBot,
+      receiver: adminId,
+      text: cleanedText,
+      timestamp: new Date().toISOString(),
       botId: adminBot,
     };
 
-    setChatLog((prev) => [...prev, newMessage]);
-    setInput("");
+    setChatLog((prev) => [...prev, aiReply]);
 
     await saveMessageToFirestore({
       companyId,
       employeeId: adminId,
-      ...newMessage,
+      ...aiReply,
     });
+  } catch (error) {
+    console.error("AI応答エラー:", error);
 
-    try {
-      const similarMessages = await searchSimilarMessages({
-        companyId,
-        employeeId: adminId,
-        queryText: input,
-        topK: 5,
-        botId: adminBot,
-      });
-
-      const contextText = similarMessages
-        .map((msg) => `${msg.sender === adminId ? "管理職" : "分身AI"}: ${msg.text}`)
-        .join("\n")
-        .slice(-1500);
-
-      const prompt = new PromptTemplate({
-        inputVariables: ["systemPrompt", "context", "question"],
-        template: `
-{systemPrompt}
-
-【過去ログ（参考）】
-{context}
-
-【管理職の入力】
-{question}
-
-返答は丁寧で自然な日本語で書いてください。
-文章の長さは内容に応じて調整し、必要なら簡潔に、必要なら十分に詳しく回答してください。
-改行は適切に行い、不自然な空行は避けてください。
-（表情）や（動作）は文の冒頭で改行せず、文と同じ行で返してください。
-`.trim(),
-      });
-
-      const chain = prompt.pipe(llm);
-      const result = await chain.invoke({
-        systemPrompt: botPrompt,
-        context: contextText,
-        question: input,
-      });
-
-      const cleanedText = formatReplyText(result.text);
-
-      const aiReply = {
-        sender: adminBot,
-        receiver: adminId,
-        text: cleanedText,
-        timestamp: new Date().toISOString(),
-        botId: adminBot,
-      };
-
-      setChatLog((prev) => [...prev, aiReply]);
-
-      await saveMessageToFirestore({
-        companyId,
-        employeeId: adminId,
-        ...aiReply,
-      });
-    } catch (error) {
-      console.error("AI応答エラー:", error);
-    }
-  };
+    // エラー発生時もユーザーに通知
+    const errorMessage = {
+      sender: adminBot,
+      receiver: adminId,
+      text: "❌ 応答に失敗しました。しばらくしてからもう一度お試しください。",
+      timestamp: new Date().toISOString(),
+      botId: adminBot,
+    };
+    setChatLog((prev) => [...prev, errorMessage]);
+  }
+};
 
   const handleSelectUser = async (user) => {
     setSelectedUser(user);
@@ -235,57 +282,44 @@ function AdminView({ companyId, adminId }) {
     }
   };
   
-  const generateSelfAnalysis = async (logsText) => {
-    const prompt = new PromptTemplate({
-      inputVariables: ["log"],
-      template: `
-以下の1ヶ月分の会話ログをもとに、ユーザーの性格傾向をMBTIとTEGの両方で分析し、最後にそれらを掛け合わせた総評を出力してください。
+const generateSelfAnalysis = async (logsText) => {
+  const prompt = new PromptTemplate({
+    inputVariables: ["log"],
+    template: `
+以下の1ヶ月分の会話ログをもとに、ユーザーの性格傾向を **Markdown形式で** 出力してください。
 
-【MBTI分析】
-1. MBTIタイプ（4文字＋日本語ネーミング、例：INTJ（建築家））
-2. MBTIタイプの根拠（発言や態度から）
+# MBTI分析
+- **MBTIタイプ**: xxxx（例: INTJ（建築家））
+- **MBTI根拠**: 発言や態度に基づく説明を具体的に
 
-【TEG分析】
-1. CP（厳格な親）: 0.0〜2.0 の数値
-2. NP（養育的な親）: 0.0〜2.0
-3. A（大人）: 0.0〜2.0
-4. FC（自由な子）: 0.0〜2.0
-5. AC（順応する子）: 0.0〜2.0
+# TEG分析
+- **TEG数値**:
+  - CP（厳格な親）: 0.0〜2.0 の数値
+  - NP（養育的な親）: 0.0〜2.0
+  - A（大人）: 0.0〜2.0
+  - FC（自由な子）: 0.0〜2.0
+  - AC（順応する子）: 0.0〜2.0
+- **TEGタイプ**: （例：NP優勢型、A安定型、CP優位型 等）
+- **特徴**: 長所と短所を挙げてください
+- **傾向**: 行動や思考の特徴を簡潔に
+- **留意点**: 注意点や改善点を挙げてください
 
-2. TEGタイプ名（例：NP優勢型、A安定型、CP高型 等）
-3. タイプの特徴（長所と短所）
-4. 傾向（行動や思考の特徴）
-5. 留意点（注意すべき点）
+# MBTI × TEG 総評
+「現在のあなたの思考は〜です」から始めて以下を含む文章を作成してください：
+- 思考スタイル
+- 対人関係の傾向
+- 強みとストレス傾向
+- 相性の良いタイプ（あれば）
 
-【MBTI × TEG 総評】
-MBTIとTEGの組み合わせから読み取れる以下の観点を自然な日本語でまとめてください。
-最初の1文は必ず「現在のあなたの思考は〜です」で始めてください：
-
-- 現在のあなたの思考はどのようなスタイルか
-- 対人関係の傾向（上下関係、同僚関係など）
-- 職場やチームで活かせる強み
-- 落とし穴やストレスの兆候
-- 相性が良い/悪いタイプ（あれば）
-
-【出力形式】
-- MBTIタイプ: xxxx
-- MBTI根拠: 〜〜〜
-- TEG数値: CP=x.x, NP=x.x, A=x.x, FC=x.x, AC=x.x
-- TEGタイプ名: ○○型
-- 特徴: ○○○
-- 傾向: ○○○
-- 留意点: ○○○
-- MBTI × TEG 総評: 現在のあなたの思考は〜です。〜〜〜
-
-ログ:
+## ログ
 {log}
 `.trim(),
-    });
+  });
 
-    const chain = prompt.pipe(llm);
-    const result = await chain.invoke({ log: logsText });
-    return result.text;
-  };
+  const chain = prompt.pipe(llm);
+  const result = await chain.invoke({ log: logsText });
+  return result.text;
+};
 
   const handleTabClick = async (label) => {
     setActiveTab(label);
@@ -310,7 +344,7 @@ MBTIとTEGの組み合わせから読み取れる以下の観点を自然な日�
             new Date(msg.timestamp) >= oneMonthAgo &&
             msg.sender === adminId
         )
-        .map((msg) => `管理職: ${msg.text}`)
+        .map((msg) => `あなた: ${msg.text}`)
         .join("\n");
   
       if (!recentLogs.trim()) {
@@ -340,7 +374,7 @@ MBTIとTEGの組み合わせから読み取れる以下の観点を自然な日�
             new Date(msg.timestamp) >= oneMonthAgo &&
             msg.sender === adminId
         )
-        .map((msg) => `管理職: ${msg.text}`)
+        .map((msg) => `あなた: ${msg.text}`)
         .join("\n");
   
       if (!feedbackLogs.trim()) {
@@ -352,7 +386,7 @@ MBTIとTEGの組み合わせから読み取れる以下の観点を自然な日�
       const prompt = new PromptTemplate({
         inputVariables: ["log"],
         template: `
-  以下の1ヶ月分の管理職の発言ログを元に、次の項目に基づいてフィードバックを作成してください。
+  以下の1ヶ月分のあなたの発言ログを元に、次の項目に基づいてフィードバックを作成してください。
   
   【フィードバック出力内容】
   1. 現時点での自己課題（過去の発言内容に基づく）
@@ -416,47 +450,87 @@ MBTIとTEGの組み合わせから読み取れる以下の観点を自然な日�
   </div>
 )}
 
-        {summary && (
+{summary && (
   <div className="admin-summary-wrapper">
     <h3>🧠 総評（{selectedUser?.name ?? "管理者自身"}）</h3>
-    <div className="admin-summary-box">{summary}</div>
+    <div className="admin-summary-box">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]} 
+        rehypePlugins={[rehypeRaw, rehypeHighlight]}// ✅ ← GFMを有効化
+        components={{
+          h1: ({ node, ...props }) => <h1 className="chat-heading" {...props} />,
+          h2: ({ node, ...props }) => <h2 className="chat-heading" {...props} />,
+          h3: ({ node, ...props }) => <h3 className="chat-heading" {...props} />,
+          ul: ({ node, ...props }) => <ul className="chat-list" {...props} />,
+          li: ({ node, ...props }) => <li className="chat-list-item" {...props} />,
+          p: ({ node, ...props }) => <p className="chat-paragraph" {...props} />,
+          strong: ({ node, ...props }) => <strong style={{ fontWeight: "bold" }} {...props} />,
+          input: ({ node, ...props }) => (
+            <input type="checkbox" disabled style={{ marginRight: '6px' }} {...props} />
+          ),
+        }}
+      >
+        {formatReplyText(summary)}
+      </ReactMarkdown>
+    </div>
   </div>
 )}
       </div>
 
-      {/* 中央チャット */}
-      <div className="admin-center">
-        <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
+{/* 中央チャット */}
+<div className="admin-center">
+  <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
 
-        <div className="admin-chat-box">
-          {chatLog.length === 0 ? (
-            <p>※ChatGPTとの会話はまだありません</p>
-          ) : (
-            chatLog.map((msg, i) => {
-              const isAdmin = msg.sender === adminId;
-              const msgClass = isAdmin
-                ? "admin-chat-message admin-chat-right"
-                : "admin-chat-message admin-chat-left";
-              const senderLabel = isAdmin ? "管理職" : adminBot;
-              return (
-                <div key={i} className={msgClass}>
-                  <strong>{senderLabel}</strong>: {msg.text}
-                </div>
-              );
-            })
-          )}
+  {/* 👇 ここがスクロール対象のチャットボックス */}
+<div className="admin-chat-box">
+  {chatLog.length === 0 ? (
+    <p>※ChatGPTとの会話はまだありません</p>
+  ) : (
+    chatLog.map((msg, i) => {
+      const isAdmin = msg.sender === adminId;
+      const msgClass = isAdmin
+        ? "admin-chat-message admin-chat-right"
+        : "admin-chat-message admin-chat-left";
+      const senderLabel = isAdmin ? "あなた" : adminBot;
+      return (
+        <div key={i} className={msgClass}>
+          <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              h1: ({ node, ...props }) => <h1 className="chat-heading" {...props} />,
+              h2: ({ node, ...props }) => <h2 className="chat-heading" {...props} />,
+              h3: ({ node, ...props }) => <h3 className="chat-heading" {...props} />,
+              ul: ({ node, ...props }) => <ul className="chat-list" {...props} />,
+              li: ({ node, ...props }) => <li className="chat-list-item" {...props} />,
+              p: ({ node, ...props }) => <p className="chat-paragraph" {...props} />,
+              strong: ({ node, ...props }) => <strong style={{ fontWeight: "bold" }} {...props} />,
+              input: ({ node, ...props }) => (
+                <input type="checkbox" disabled style={{ marginRight: '6px' }} {...props} />
+              ),
+            }}
+          >
+            {formatReplyText(msg.text)}
+          </ReactMarkdown>
         </div>
+      );
+    })
+  )}
+  {/* 自動スクロール対象 */}
+  <div ref={chatEndRef} />
+</div>
 
-        <div className="admin-input-box">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="メッセージを入力..."
-          />
-          <button onClick={handleAdminSend}>送信</button>
-        </div>
-      </div>
+{/* 入力ボックス */}
+<div className="admin-input-box">
+  <input
+    type="text"
+    value={input}
+    onChange={(e) => setInput(e.target.value)}
+    placeholder="メッセージを入力..."
+  />
+  <button onClick={handleAdminSend}>送信</button>
+</div>
+</div>
 
       {/* 右パネル */}
       <div className="admin-right">
