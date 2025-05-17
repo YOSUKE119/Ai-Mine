@@ -95,7 +95,13 @@ useEffect(() => {
   window.addEventListener("resize", handleResize);
   return () => window.removeEventListener("resize", handleResize);
 }, []);
+useEffect(() => {
+  console.log("📱 isMobile:", isMobile);
+}, [isMobile]);
 
+useEffect(() => {
+  console.log("📱 mobileView:", mobileView);
+}, [mobileView]);
 // ✅ モバイル画面切替用（追加ここまで）
 
   const llm = new ChatOpenAI({
@@ -486,7 +492,52 @@ return (
     {/* ✅ デスクトップとモバイル共通レイアウト */}
     <div className="admin-container">
       {/* 左：サイドバー */}
-      {!isMobile || mobileView === "analysis" ? (
+      {isMobile ? (
+        mobileView === "analysis" && (
+          <div className="admin-sidebar">
+            <img src="/logo.png" alt="Logo" className="admin-logo" />
+            <p style={{ textAlign: "center", fontWeight: "bold", fontSize: "20px", margin: "12px 0 16px 0" }}>
+              分身AI: {adminBot || "未設定"}
+            </p>
+
+            <div className="tab-buttons">
+              {["職員分析", "自己分析", "フィードバック"].map((label) => (
+                <button
+                  key={label}
+                  className={`tab-button ${activeTab === label ? "active" : ""}`}
+                  onClick={() => handleTabClick(label)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {isLoading && (
+              <div style={{ textAlign: "center", color: "#888", marginTop: "1rem" }}>
+                ⏳ 分析中です...
+              </div>
+            )}
+
+            {summary && (
+              <div className="admin-summary-wrapper">
+                <h3>🧠 総評（{
+                  activeTab === "職員分析"
+                    ? selectedUser?.name ?? "未選択"
+                    : "あなた"
+                }）</h3>
+                <div className="admin-summary-box">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                  >
+                    {formatReplyText(summary)}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      ) : (
         <div className="admin-sidebar">
           <img src="/logo.png" alt="Logo" className="admin-logo" />
           <p style={{ textAlign: "center", fontWeight: "bold", fontSize: "20px", margin: "12px 0 16px 0" }}>
@@ -522,18 +573,6 @@ return (
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
                   rehypePlugins={[rehypeRaw, rehypeHighlight]}
-                  components={{
-                    h1: ({ node, ...props }) => <h1 className="chat-heading" {...props} />,
-                    h2: ({ node, ...props }) => <h2 className="chat-heading" {...props} />,
-                    h3: ({ node, ...props }) => <h3 className="chat-heading" {...props} />,
-                    ul: ({ node, ...props }) => <ul className="chat-list" {...props} />,
-                    li: ({ node, ...props }) => <li className="chat-list-item" {...props} />,
-                    p: ({ node, ...props }) => <p className="chat-paragraph" {...props} />,
-                    strong: ({ node, ...props }) => <strong style={{ fontWeight: "bold" }} {...props} />,
-                    input: ({ node, ...props }) => (
-                      <input type="checkbox" disabled style={{ marginRight: '6px' }} {...props} />
-                    ),
-                  }}
                 >
                   {formatReplyText(summary)}
                 </ReactMarkdown>
@@ -541,10 +580,54 @@ return (
             </div>
           )}
         </div>
-      ) : null}
+      )}
 
       {/* 中央チャット：マイチャット or 分身AI */}
-      {!isMobile || mobileView === "chat" ? (
+      {isMobile ? (
+        mobileView === "chat" && (
+          <div className="admin-center">
+            <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
+
+            <div className="admin-chat-box">
+              {chatLog.length === 0 ? (
+                <p>※ChatGPTとの会話はまだありません</p>
+              ) : (
+                chatLog.map((msg, i) => {
+                  const isAdmin = msg.sender === adminId;
+                  const msgClass = isAdmin
+                    ? "admin-chat-message admin-chat-right"
+                    : "admin-chat-message admin-chat-left";
+                  const senderLabel = isAdmin ? "あなた" : adminBot;
+                  return (
+                    <div key={i} className={msgClass}>
+                      <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                      >
+                        {formatReplyText(msg.text)}
+                      </ReactMarkdown>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            <div className="admin-input-box">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={handleInputChange}
+                placeholder="メッセージを入力..."
+                rows={1}
+                className="auto-resize-textarea"
+              />
+              <button onClick={handleAdminSend}>送信</button>
+            </div>
+          </div>
+        )
+      ) : (
         <div className="admin-center">
           <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
 
@@ -563,18 +646,7 @@ return (
                     <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
-                      components={{
-                        h1: ({ node, ...props }) => <h1 className="chat-heading" {...props} />,
-                        h2: ({ node, ...props }) => <h2 className="chat-heading" {...props} />,
-                        h3: ({ node, ...props }) => <h3 className="chat-heading" {...props} />,
-                        ul: ({ node, ...props }) => <ul className="chat-list" {...props} />,
-                        li: ({ node, ...props }) => <li className="chat-list-item" {...props} />,
-                        p: ({ node, ...props }) => <p className="chat-paragraph" {...props} />,
-                        strong: ({ node, ...props }) => <strong style={{ fontWeight: "bold" }} {...props} />,
-                        input: ({ node, ...props }) => (
-                          <input type="checkbox" disabled style={{ marginRight: '6px' }} {...props} />
-                        ),
-                      }}
+                      rehypePlugins={[rehypeRaw, rehypeHighlight]}
                     >
                       {formatReplyText(msg.text)}
                     </ReactMarkdown>
@@ -597,10 +669,58 @@ return (
             <button onClick={handleAdminSend}>送信</button>
           </div>
         </div>
-      ) : null}
+      )}
 
       {/* 右：社員ログ・ユーザーリスト */}
-      {!isMobile || mobileView === "staff" ? (
+      {isMobile ? (
+        mobileView === "staff" && (
+          <div className="admin-right">
+            <h4>📖 社員ログ</h4>
+            {selectedUser ? (
+              <div className="admin-log-box">
+                {messages.length > 0 ? (
+                  <div className="admin-chat-box">
+                    {messages.map((msg, i) => {
+                      const isEmployee = msg.sender === selectedUser.employeeId;
+                      const msgClass = isEmployee
+                        ? "admin-chat-message admin-chat-right"
+                        : "admin-chat-message admin-chat-left";
+                      const senderLabel = isEmployee ? selectedUser.name : adminBot;
+                      return (
+                        <div key={i} className={msgClass}>
+                          <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                          >
+                            {formatReplyText(msg.text)}
+                          </ReactMarkdown>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p>この社員のログはまだありません。</p>
+                )}
+              </div>
+            ) : (
+              <p>社員を選んでログを見る</p>
+            )}
+
+            <div className="admin-user-list">
+              {users.map((user) => (
+                <div
+                  key={user.employeeId}
+                  onClick={() => handleSelectUser(user)}
+                  className={`admin-user ${selectedUser?.employeeId === user.employeeId ? "active" : ""}`}
+                >
+                  💬 {user.name}
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      ) : (
         <div className="admin-right">
           <h4>📖 社員ログ</h4>
           {selectedUser ? (
@@ -618,18 +738,7 @@ return (
                         <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
-                          components={{
-                            h1: ({ node, ...props }) => <h1 className="chat-heading" {...props} />,
-                            h2: ({ node, ...props }) => <h2 className="chat-heading" {...props} />,
-                            h3: ({ node, ...props }) => <h3 className="chat-heading" {...props} />,
-                            ul: ({ node, ...props }) => <ul className="chat-list" {...props} />,
-                            li: ({ node, ...props }) => <li className="chat-list-item" {...props} />,
-                            p: ({ node, ...props }) => <p className="chat-paragraph" {...props} />,
-                            strong: ({ node, ...props }) => <strong style={{ fontWeight: "bold" }} {...props} />,
-                            input: ({ node, ...props }) => (
-                              <input type="checkbox" disabled style={{ marginRight: '6px' }} {...props} />
-                            ),
-                          }}
+                          rehypePlugins={[rehypeRaw, rehypeHighlight]}
                         >
                           {formatReplyText(msg.text)}
                         </ReactMarkdown>
@@ -657,7 +766,7 @@ return (
             ))}
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   </>
 );
