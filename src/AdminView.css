@@ -372,3 +372,93 @@
   margin-bottom: 4px;
   font-weight: bold;
 }
+/* デスクトップ向け（既存レイアウトはそのままでOK） */
+
+/* ✅ モバイル向け調整：768px以下 */
+@media (max-width: 768px) {
+  .admin-container {
+    flex-direction: column;
+    padding: 0;
+  }
+
+  .admin-sidebar,
+  .admin-center,
+  .admin-right {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+  }
+
+  .admin-sidebar {
+    order: 1;
+  }
+
+  .admin-center {
+    order: 2;
+  }
+
+  .admin-right {
+    order: 3;
+  }
+
+  .admin-chat-box {
+    max-height: 50vh;
+    overflow-y: auto;
+    padding: 10px;
+  }
+
+  .admin-input-box {
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 0;
+  }
+
+  .admin-input-box input {
+    width: 100%;
+    font-size: 16px;
+    padding: 10px;
+  }
+
+  .admin-input-box button {
+    width: 100%;
+    font-size: 16px;
+    padding: 10px;
+  }
+
+  .tab-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tab-button {
+    width: 100%;
+    font-size: 16px;
+  }
+
+  .admin-summary-box {
+    font-size: 14px;
+    line-height: 1.5;
+    padding: 10px;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+
+  .admin-log-box {
+    font-size: 14px;
+    line-height: 1.5;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .admin-user-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .admin-user {
+    flex: 1 1 45%;
+    text-align: center;
+  }
+}
