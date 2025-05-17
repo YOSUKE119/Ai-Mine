@@ -479,7 +479,7 @@ return (
       <>
         <div className="mobile-header">
           <button className="menu-button" onClick={() => setMenuOpen(!menuOpen)}>≡</button>
-          <span className="header-title">Ai-Mine 管理</span>
+          <span className="header-title">Ai-Mine </span>
         </div>
 
         {menuOpen && (
@@ -491,7 +491,6 @@ return (
         )}
       </>
     )}
-
     {/* ✅ デスクトップとモバイル共通レイアウト */}
     <div className="admin-container">
       {/* 左：サイドバー */}

@@ -415,6 +415,12 @@
 
   .admin-center {
     order: 2;
+    display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: calc(var(--vh, 1vh) * 100); /* モバイル対応 */
+  box-sizing: border-box;
+  padding: 10px;
   }
 
   .admin-right {
@@ -486,6 +492,19 @@
     flex: 1 1 45%;
     text-align: center;
   }
+
+  .mobile-header {
+  position: relative; /* ← 必須！ */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  padding: 0 12px;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  z-index: 1000;
+}
+
   /* モバイルヘッダー用メニューボタン */
 .menu-button {
   background-color: white;
@@ -519,11 +538,19 @@
 
 /* メニュー全体：アニメーション追加 */
 .mobile-menu {
+  position: absolute;
+  top: 50px; /* .mobile-header の下に出す */
+  left: 10px;
+  right: 10px;
+  z-index: 999; /* 前面に表示するため */
   display: flex;
-  flex-direction: row;
-  justify-content: center;
+  flex-direction: column;
   gap: 8px;
-  margin: 12px 0;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   animation: fadeInSlide 0.25s ease-out;
 }
 
