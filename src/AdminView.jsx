@@ -468,7 +468,10 @@ const generateSelfAnalysis = async (logsText) => {
       }
     }
   };
-    
+  
+console.log("💬 chatLog.length =", chatLog.length);
+console.log("💬 chatLog =", chatLog);
+
 return (
   <>
     {/* ✅ モバイル専用：ハンバーガーメニュー */}
@@ -582,94 +585,93 @@ return (
         </div>
       )}
 
-      {/* 中央チャット：マイチャット or 分身AI */}
-      {isMobile ? (
-        mobileView === "chat" && (
-          <div className="admin-center">
-            <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
+{/* 中央チャット：マイチャット or 分身AI */}
+{isMobile ? (
+  mobileView === "chat" && (
+    <div className="admin-center">
+      <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
 
-            <div className="admin-chat-box">
-              {chatLog.length === 0 ? (
-                <p>※ChatGPTとの会話はまだありません</p>
-              ) : (
-                chatLog.map((msg, i) => {
-                  const isAdmin = msg.sender === adminId;
-                  const msgClass = isAdmin
-                    ? "admin-chat-message admin-chat-right"
-                    : "admin-chat-message admin-chat-left";
-                  const senderLabel = isAdmin ? "あなた" : adminBot;
-                  return (
-                    <div key={i} className={msgClass}>
-                      <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm]}
-                        rehypePlugins={[rehypeRaw, rehypeHighlight]}
-                      >
-                        {formatReplyText(msg.text)}
-                      </ReactMarkdown>
-                    </div>
-                  );
-                })
-              )}
-              <div ref={chatEndRef} />
-            </div>
+      <div className="admin-chat-box">
+{chatLog.map((msg, i) => {
+  const isAdmin = msg.sender === adminId;
+  const wrapperClass = isAdmin
+    ? "admin-chat-wrapper admin-chat-right"
+    : "admin-chat-wrapper admin-chat-left";
+  const senderLabel = isAdmin ? "あなた" : adminBot;
 
-            <div className="admin-input-box">
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={handleInputChange}
-                placeholder="メッセージを入力..."
-                rows={1}
-                className="auto-resize-textarea"
-              />
-              <button onClick={handleAdminSend}>送信</button>
-            </div>
-          </div>
-        )
-      ) : (
-        <div className="admin-center">
-          <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
+  return (
+    <div key={i} className={wrapperClass}>
+      <div className="admin-chat-message">
+        <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw, rehypeHighlight]}
+        >
+          {formatReplyText(msg.text)}
+        </ReactMarkdown>
+      </div>
+    </div>
+  );
+})}
+        <div ref={chatEndRef} />
+      </div>
 
-          <div className="admin-chat-box">
-            {chatLog.length === 0 ? (
-              <p>※ChatGPTとの会話はまだありません</p>
-            ) : (
-              chatLog.map((msg, i) => {
-                const isAdmin = msg.sender === adminId;
-                const msgClass = isAdmin
-                  ? "admin-chat-message admin-chat-right"
-                  : "admin-chat-message admin-chat-left";
-                const senderLabel = isAdmin ? "あなた" : adminBot;
-                return (
-                  <div key={i} className={msgClass}>
-                    <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      rehypePlugins={[rehypeRaw, rehypeHighlight]}
-                    >
-                      {formatReplyText(msg.text)}
-                    </ReactMarkdown>
-                  </div>
-                );
-              })
-            )}
-            <div ref={chatEndRef} />
-          </div>
+      <div className="admin-input-box">
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={handleInputChange}
+          placeholder="メッセージを入力..."
+          rows={1}
+          className="auto-resize-textarea"
+        />
+        <button onClick={handleAdminSend}>送信</button>
+      </div>
+    </div>
+  )
+) : (
+  // ✅ デスクトップでは常時表示
+  <div className="admin-center">
+    <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
 
-          <div className="admin-input-box">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={handleInputChange}
-              placeholder="メッセージを入力..."
-              rows={1}
-              className="auto-resize-textarea"
-            />
-            <button onClick={handleAdminSend}>送信</button>
-          </div>
-        </div>
-      )}
+    <div className="admin-chat-box">
+{chatLog.map((msg, i) => {
+  const isAdmin = msg.sender === adminId;
+  const wrapperClass = isAdmin
+    ? "admin-chat-wrapper admin-chat-right"
+    : "admin-chat-wrapper admin-chat-left";
+  const senderLabel = isAdmin ? "あなた" : adminBot;
+
+  return (
+    <div key={i} className={wrapperClass}>
+      <div className="admin-chat-message">
+        <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeRaw, rehypeHighlight]}
+        >
+          {formatReplyText(msg.text)}
+        </ReactMarkdown>
+      </div>
+    </div>
+  );
+})}
+      <div ref={chatEndRef} />
+    </div>
+
+    <div className="admin-input-box">
+      <textarea
+        ref={textareaRef}
+        value={input}
+        onChange={handleInputChange}
+        placeholder="メッセージを入力..."
+        rows={1}
+        className="auto-resize-textarea"
+      />
+      <button onClick={handleAdminSend}>送信</button>
+    </div>
+  </div>
+)}
 
       {/* 右：社員ログ・ユーザーリスト */}
       {isMobile ? (

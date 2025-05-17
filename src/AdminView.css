@@ -140,53 +140,72 @@
   border: 1px solid #ddd;
   text-align: left;
 }
+/* ラッパー要素 */
+.admin-chat-wrapper {
+  position: relative;
+  display: flex;
+  width: 100%;
+  margin: 6px 0;
+}
 
 /* 吹き出し（左） */
 .admin-chat-left {
-  align-self: flex-start;
+  justify-content: flex-start;
+  display: flex;
+  width: 100%;
+  position: relative;
 }
+
 .admin-chat-left::before {
   content: "";
   position: absolute;
   left: -8px;
   top: 14px;
-  border: 8px solid transparent;
-  border-right-color: #ffffff;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-right: 8px solid #ffffff;
   z-index: 2;
 }
+
 .admin-chat-left::after {
   content: "";
   position: absolute;
   left: -9px;
   top: 13px;
-  border: 9px solid transparent;
-  border-right-color: #ddd;
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-right: 9px solid #ddd;
   z-index: 1;
 }
-
 /* 吹き出し（右） */
 .admin-chat-right {
-  align-self: flex-end;
+  justify-content: flex-end;
+  display: flex;
+  width: 100%;
+  position: relative;
 }
+
 .admin-chat-right::before {
   content: "";
   position: absolute;
   right: -8px;
   top: 14px;
-  border: 8px solid transparent;
-  border-left-color: #ffffff;
+  border-top: 8px solid transparent;
+  border-bottom: 8px solid transparent;
+  border-left: 8px solid #ffffff;
   z-index: 2;
 }
+
 .admin-chat-right::after {
   content: "";
   position: absolute;
   right: -9px;
   top: 13px;
-  border: 9px solid transparent;
-  border-left-color: #ccc;
+  border-top: 9px solid transparent;
+  border-bottom: 9px solid transparent;
+  border-left: 9px solid #ccc;
   z-index: 1;
 }
-
 /* 吹き出し内のMarkdown */
 .admin-chat-message h1,
 .admin-chat-message h2,
@@ -374,53 +393,6 @@
 }
 /* デスクトップ向け（既存レイアウトはそのままでOK） */
 
-/* ✅ モバイル用：ハンバーガーヘッダー */
-.mobile-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background-color: #007bff;
-  color: white;
-  font-size: 16px;
-  font-weight: bold;
-}
-
-.menu-button {
-  font-size: 20px;
-  background: none;
-  border: none;
-  color: white;
-  cursor: pointer;
-}
-
-.header-title {
-  font-size: 16px;
-}
-
-/* ✅ モバイル用：メニュー（表示切り替え） */
-.mobile-menu {
-  display: flex;
-  flex-direction: column;
-  padding: 8px;
-  background-color: #e4e6eb;
-}
-
-.mobile-menu button {
-  padding: 10px;
-  margin: 4px 0;
-  font-size: 16px;
-  font-weight: bold;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background: #fff;
-  cursor: pointer;
-}
-
-.mobile-menu button:hover {
-  background-color: #f0f0f0;
-}
-
 /* ✅ モバイル向け調整：768px以下 */
 @media (max-width: 768px) {
   .admin-container {
@@ -428,22 +400,25 @@
     padding: 0;
   }
 
-  /* 各パネルを初期状態で非表示 */
   .admin-sidebar,
   .admin-center,
   .admin-right {
-    display: none;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
     padding: 10px;
   }
 
-  /* 表示したいビューだけ .active で表示 */
-  .admin-sidebar.active,
-  .admin-center.active,
-  .admin-right.active {
-    display: block;
+  .admin-sidebar {
+    order: 1;
+  }
+
+  .admin-center {
+    order: 2;
+  }
+
+  .admin-right {
+    order: 3;
   }
 
   .admin-chat-box {
@@ -458,22 +433,33 @@
     padding: 10px 0;
   }
 
-  .admin-input-box textarea,
+  .admin-input-box input {
+    width: 100%;
+    font-size: 16px;
+    padding: 10px;
+  }
+
   .admin-input-box button {
     width: 100%;
     font-size: 16px;
     padding: 10px;
   }
 
-  .tab-buttons {
-    flex-direction: column;
-    gap: 8px;
-  }
+.tab-buttons {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 
-  .tab-button {
-    width: 100%;
-    font-size: 16px;
-  }
+.tab-button {
+  width: auto;
+  min-width: 100px;
+  font-size: 16px;
+  padding: 8px 12px;
+  border-radius: 6px;
+}
 
   .admin-summary-box {
     font-size: 14px;
@@ -500,4 +486,80 @@
     flex: 1 1 45%;
     text-align: center;
   }
+  /* モバイルヘッダー用メニューボタン */
+.menu-button {
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+  font-weight: bold;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.menu-button:hover {
+  background-color: #f0f0f0;
+}
+/* メニューボタン本体 */
+.menu-button {
+  background-color: transparent;
+  border: none;
+  font-size: 24px;
+  padding: 4px;
+  margin-right: 12px;
+  cursor: pointer;
+  color: #333;
+  transition: color 0.2s ease;
+}
+.menu-button:hover {
+  color: #007bff;
+}
+
+/* メニュー全体：アニメーション追加 */
+.mobile-menu {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px 0;
+  animation: fadeInSlide 0.25s ease-out;
+}
+
+/* 今風のボタンスタイル */
+.mobile-menu button {
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  background-color: #e0e0e0;
+  border: none;
+  border-radius: 6px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* アクティブ状態を明確に */
+.mobile-menu button.active {
+  background-color: #007bff;
+  color: white;
+}
+
+/* ホバー効果 */
+.mobile-menu button:hover {
+  background-color: #d0d0d0;
+}
+
+/* 登場アニメーション */
+@keyframes fadeInSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 }
