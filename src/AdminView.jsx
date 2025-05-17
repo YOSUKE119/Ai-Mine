@@ -50,6 +50,10 @@ function AdminView({ companyId, adminId }) {
   const chatEndRef = useRef(null);           // ✅ チャット最下部へのスクロール用
   const textareaRef = useRef(null);          // ✅ 入力欄の自動拡張用
 
+  // ✅ ここに追加
+  useEffect(() => {
+    console.log("✅ AdminView mounted");
+    }, []);
   // ✅ 入力欄変更時の高さ自動調整処理
 const handleInputChange = (e) => {
   const newValue = e.target.value;
@@ -81,6 +85,8 @@ const handleInputChange = (e) => {
 const [mobileView, setMobileView] = useState("chat");  // "chat", "staff", "analysis"
 const [menuOpen, setMenuOpen] = useState(false);
 const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+// ✅ return の直前で確認
+console.log("📱 mobileView:", mobileView);
 
 useEffect(() => {
   const handleResize = () => {
