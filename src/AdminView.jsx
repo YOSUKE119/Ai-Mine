@@ -77,6 +77,12 @@ const handleInputChange = (e) => {
   const [activeTab, setActiveTab] = useState("職員分析");
   const [isLoading, setIsLoading] = useState(false);
 
+  // ✅ モバイル画面切替用（追加ここから）
+const [mobileView, setMobileView] = useState("chat");  // "chat", "staff", "analysis"
+const [menuOpen, setMenuOpen] = useState(false);
+const isMobile = window.innerWidth <= 768;
+// ✅ モバイル画面切替用（追加ここまで）
+
   const llm = new ChatOpenAI({
     modelName: "gpt-4.1",
     temperature: 0.3,
@@ -442,179 +448,204 @@ const generateSelfAnalysis = async (logsText) => {
     }
   };
     
-  return (
-    <div className="admin-container">
-      {/* サイドバー */}
-      <div className="admin-sidebar">
-        <img src="/logo.png" alt="Logo" className="admin-logo" />
-        <p style={{ textAlign: "center", fontWeight: "bold", fontSize: "20px", margin: "12px 0 16px 0" }}>
-  分身AI: {adminBot || "未設定"}
-</p>
-<div className="tab-buttons">
-  {["職員分析", "自己分析", "フィードバック"].map((label) => (
-    <button
-      key={label}
-      className={`tab-button ${activeTab === label ? "active" : ""}`}
-      onClick={() => handleTabClick(label)}
-    >
-      {label}
-    </button>
-  ))}
-</div>
-
-{isLoading && (
-  <div style={{ textAlign: "center", color: "#888", marginTop: "1rem" }}>
-    ⏳ 分析中です...
-  </div>
-)}
-
-{summary && (
-  <div className="admin-summary-wrapper">
-    <h3>🧠 総評（{
-      activeTab === "職員分析"
-        ? selectedUser?.name ?? "未選択"
-        : "あなた"
-    }）</h3>
-    <div className="admin-summary-box">
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]} 
-        rehypePlugins={[rehypeRaw, rehypeHighlight]}
-        components={{
-          h1: ({ node, ...props }) => <h1 className="chat-heading" {...props} />,
-          h2: ({ node, ...props }) => <h2 className="chat-heading" {...props} />,
-          h3: ({ node, ...props }) => <h3 className="chat-heading" {...props} />,
-          ul: ({ node, ...props }) => <ul className="chat-list" {...props} />,
-          li: ({ node, ...props }) => <li className="chat-list-item" {...props} />,
-          p: ({ node, ...props }) => <p className="chat-paragraph" {...props} />,
-          strong: ({ node, ...props }) => <strong style={{ fontWeight: "bold" }} {...props} />,
-          input: ({ node, ...props }) => (
-            <input type="checkbox" disabled style={{ marginRight: '6px' }} {...props} />
-          ),
-        }}
-      >
-        {formatReplyText(summary)}
-      </ReactMarkdown>
-    </div>
-  </div>
-)}
-      </div>
-
-{/* 中央チャット */}
-<div className="admin-center">
-  <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
-
-  {/* 👇 ここがスクロール対象のチャットボックス */}
-<div className="admin-chat-box">
-  {chatLog.length === 0 ? (
-    <p>※ChatGPTとの会話はまだありません</p>
-  ) : (
-    chatLog.map((msg, i) => {
-      const isAdmin = msg.sender === adminId;
-      const msgClass = isAdmin
-        ? "admin-chat-message admin-chat-right"
-        : "admin-chat-message admin-chat-left";
-      const senderLabel = isAdmin ? "あなた" : adminBot;
-      return (
-        <div key={i} className={msgClass}>
-          <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              h1: ({ node, ...props }) => <h1 className="chat-heading" {...props} />,
-              h2: ({ node, ...props }) => <h2 className="chat-heading" {...props} />,
-              h3: ({ node, ...props }) => <h3 className="chat-heading" {...props} />,
-              ul: ({ node, ...props }) => <ul className="chat-list" {...props} />,
-              li: ({ node, ...props }) => <li className="chat-list-item" {...props} />,
-              p: ({ node, ...props }) => <p className="chat-paragraph" {...props} />,
-              strong: ({ node, ...props }) => <strong style={{ fontWeight: "bold" }} {...props} />,
-              input: ({ node, ...props }) => (
-                <input type="checkbox" disabled style={{ marginRight: '6px' }} {...props} />
-              ),
-            }}
-          >
-            {formatReplyText(msg.text)}
-          </ReactMarkdown>
+return (
+  <>
+    {/* ✅ モバイル専用：ハンバーガーメニュー */}
+    {isMobile && (
+      <>
+        <div className="mobile-header">
+          <button className="menu-button" onClick={() => setMenuOpen(!menuOpen)}>≡</button>
+          <span className="header-title">Ai-Mine 管理</span>
         </div>
-      );
-    })
-  )}
-  {/* 自動スクロール対象 */}
-  <div ref={chatEndRef} />
-</div>
 
-{/* 入力ボックス */}
-<div className="admin-input-box">
-  <textarea
-    ref={textareaRef}
-    value={input}
-    onChange={handleInputChange}
-    placeholder="メッセージを入力..."
-    rows={1}
-    className="auto-resize-textarea"
-  />
-  <button onClick={handleAdminSend}>送信</button>
-</div>
-</div>
-
-      {/* 右パネル */}
-      <div className="admin-right">
-        <h4>📖 社員ログ</h4>
-        {selectedUser ? (
-          <div className="admin-log-box">
-{messages.length > 0 ? (
-  <div className="admin-chat-box">
-    {messages.map((msg, i) => {
-      const isEmployee = msg.sender === selectedUser.employeeId;
-      const msgClass = isEmployee
-        ? "admin-chat-message admin-chat-right"
-        : "admin-chat-message admin-chat-left";
-      const senderLabel = isEmployee ? selectedUser.name : adminBot;
-      return (
-        <div key={i} className={msgClass}>
-          <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              h1: ({ node, ...props }) => <h1 className="chat-heading" {...props} />,
-              h2: ({ node, ...props }) => <h2 className="chat-heading" {...props} />,
-              h3: ({ node, ...props }) => <h3 className="chat-heading" {...props} />,
-              ul: ({ node, ...props }) => <ul className="chat-list" {...props} />,
-              li: ({ node, ...props }) => <li className="chat-list-item" {...props} />,
-              p: ({ node, ...props }) => <p className="chat-paragraph" {...props} />,
-              strong: ({ node, ...props }) => <strong style={{ fontWeight: "bold" }} {...props} />,
-              input: ({ node, ...props }) => (
-                <input type="checkbox" disabled style={{ marginRight: '6px' }} {...props} />
-              ),
-            }}
-          >
-            {formatReplyText(msg.text)}
-          </ReactMarkdown>
-        </div>
-      );
-    })}
-  </div>
-) : (
-  <p>この社員のログはまだありません。</p>
-)}
+        {menuOpen && (
+          <div className="mobile-menu">
+            <button onClick={() => { setMobileView("chat"); setMenuOpen(false); }}>マイチャット</button>
+            <button onClick={() => { setMobileView("staff"); setMenuOpen(false); }}>職員チャット</button>
+            <button onClick={() => { setMobileView("analysis"); setMenuOpen(false); }}>分析</button>
           </div>
-        ) : (
-          <p>社員を選んでログを見る</p>
         )}
+      </>
+    )}
 
-        <div className="admin-user-list">
-          {users.map((user) => (
-            <div
-              key={user.employeeId}
-              onClick={() => handleSelectUser(user)}
-              className={`admin-user ${selectedUser?.employeeId === user.employeeId ? "active" : ""}`}
-            >
-              💬 {user.name}
+    {/* ✅ デスクトップとモバイル共通レイアウト */}
+    <div className="admin-container">
+      {/* 左：サイドバー */}
+      {!isMobile || mobileView === "analysis" ? (
+        <div className="admin-sidebar">
+          <img src="/logo.png" alt="Logo" className="admin-logo" />
+          <p style={{ textAlign: "center", fontWeight: "bold", fontSize: "20px", margin: "12px 0 16px 0" }}>
+            分身AI: {adminBot || "未設定"}
+          </p>
+
+          <div className="tab-buttons">
+            {["職員分析", "自己分析", "フィードバック"].map((label) => (
+              <button
+                key={label}
+                className={`tab-button ${activeTab === label ? "active" : ""}`}
+                onClick={() => handleTabClick(label)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {isLoading && (
+            <div style={{ textAlign: "center", color: "#888", marginTop: "1rem" }}>
+              ⏳ 分析中です...
             </div>
-          ))}
+          )}
+
+          {summary && (
+            <div className="admin-summary-wrapper">
+              <h3>🧠 総評（{
+                activeTab === "職員分析"
+                  ? selectedUser?.name ?? "未選択"
+                  : "あなた"
+              }）</h3>
+              <div className="admin-summary-box">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                  components={{
+                    h1: ({ node, ...props }) => <h1 className="chat-heading" {...props} />,
+                    h2: ({ node, ...props }) => <h2 className="chat-heading" {...props} />,
+                    h3: ({ node, ...props }) => <h3 className="chat-heading" {...props} />,
+                    ul: ({ node, ...props }) => <ul className="chat-list" {...props} />,
+                    li: ({ node, ...props }) => <li className="chat-list-item" {...props} />,
+                    p: ({ node, ...props }) => <p className="chat-paragraph" {...props} />,
+                    strong: ({ node, ...props }) => <strong style={{ fontWeight: "bold" }} {...props} />,
+                    input: ({ node, ...props }) => (
+                      <input type="checkbox" disabled style={{ marginRight: '6px' }} {...props} />
+                    ),
+                  }}
+                >
+                  {formatReplyText(summary)}
+                </ReactMarkdown>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      ) : null}
+
+      {/* 中央チャット：マイチャット or 分身AI */}
+      {!isMobile || mobileView === "chat" ? (
+        <div className="admin-center">
+          <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
+
+          <div className="admin-chat-box">
+            {chatLog.length === 0 ? (
+              <p>※ChatGPTとの会話はまだありません</p>
+            ) : (
+              chatLog.map((msg, i) => {
+                const isAdmin = msg.sender === adminId;
+                const msgClass = isAdmin
+                  ? "admin-chat-message admin-chat-right"
+                  : "admin-chat-message admin-chat-left";
+                const senderLabel = isAdmin ? "あなた" : adminBot;
+                return (
+                  <div key={i} className={msgClass}>
+                    <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        h1: ({ node, ...props }) => <h1 className="chat-heading" {...props} />,
+                        h2: ({ node, ...props }) => <h2 className="chat-heading" {...props} />,
+                        h3: ({ node, ...props }) => <h3 className="chat-heading" {...props} />,
+                        ul: ({ node, ...props }) => <ul className="chat-list" {...props} />,
+                        li: ({ node, ...props }) => <li className="chat-list-item" {...props} />,
+                        p: ({ node, ...props }) => <p className="chat-paragraph" {...props} />,
+                        strong: ({ node, ...props }) => <strong style={{ fontWeight: "bold" }} {...props} />,
+                        input: ({ node, ...props }) => (
+                          <input type="checkbox" disabled style={{ marginRight: '6px' }} {...props} />
+                        ),
+                      }}
+                    >
+                      {formatReplyText(msg.text)}
+                    </ReactMarkdown>
+                  </div>
+                );
+              })
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          <div className="admin-input-box">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={handleInputChange}
+              placeholder="メッセージを入力..."
+              rows={1}
+              className="auto-resize-textarea"
+            />
+            <button onClick={handleAdminSend}>送信</button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* 右：社員ログ・ユーザーリスト */}
+      {!isMobile || mobileView === "staff" ? (
+        <div className="admin-right">
+          <h4>📖 社員ログ</h4>
+          {selectedUser ? (
+            <div className="admin-log-box">
+              {messages.length > 0 ? (
+                <div className="admin-chat-box">
+                  {messages.map((msg, i) => {
+                    const isEmployee = msg.sender === selectedUser.employeeId;
+                    const msgClass = isEmployee
+                      ? "admin-chat-message admin-chat-right"
+                      : "admin-chat-message admin-chat-left";
+                    const senderLabel = isEmployee ? selectedUser.name : adminBot;
+                    return (
+                      <div key={i} className={msgClass}>
+                        <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            h1: ({ node, ...props }) => <h1 className="chat-heading" {...props} />,
+                            h2: ({ node, ...props }) => <h2 className="chat-heading" {...props} />,
+                            h3: ({ node, ...props }) => <h3 className="chat-heading" {...props} />,
+                            ul: ({ node, ...props }) => <ul className="chat-list" {...props} />,
+                            li: ({ node, ...props }) => <li className="chat-list-item" {...props} />,
+                            p: ({ node, ...props }) => <p className="chat-paragraph" {...props} />,
+                            strong: ({ node, ...props }) => <strong style={{ fontWeight: "bold" }} {...props} />,
+                            input: ({ node, ...props }) => (
+                              <input type="checkbox" disabled style={{ marginRight: '6px' }} {...props} />
+                            ),
+                          }}
+                        >
+                          {formatReplyText(msg.text)}
+                        </ReactMarkdown>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p>この社員のログはまだありません。</p>
+              )}
+            </div>
+          ) : (
+            <p>社員を選んでログを見る</p>
+          )}
+
+          <div className="admin-user-list">
+            {users.map((user) => (
+              <div
+                key={user.employeeId}
+                onClick={() => handleSelectUser(user)}
+                className={`admin-user ${selectedUser?.employeeId === user.employeeId ? "active" : ""}`}
+              >
+                💬 {user.name}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
-  );
+  </>
+);
 }
 
 export default AdminView;
