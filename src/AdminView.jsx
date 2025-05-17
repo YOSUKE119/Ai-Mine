@@ -248,6 +248,7 @@ const handleAdminSend = async () => {
 
   const handleSelectUser = async (user) => {
     setSelectedUser(user);
+    setActiveTab("職員分析"); // ✅ ← これを追加することで自己分析の表示を解除
     setIsLoading(true); // ✅ 追加：分析中の表示を開始
   
     try {
@@ -469,11 +470,15 @@ const generateSelfAnalysis = async (logsText) => {
 
 {summary && (
   <div className="admin-summary-wrapper">
-    <h3>🧠 総評（{selectedUser?.name ?? "管理者自身"}）</h3>
+    <h3>🧠 総評（{
+      activeTab === "職員分析"
+        ? selectedUser?.name ?? "未選択"
+        : "あなた"
+    }）</h3>
     <div className="admin-summary-box">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]} 
-        rehypePlugins={[rehypeRaw, rehypeHighlight]}// ✅ ← GFMを有効化
+        rehypePlugins={[rehypeRaw, rehypeHighlight]}
         components={{
           h1: ({ node, ...props }) => <h1 className="chat-heading" {...props} />,
           h2: ({ node, ...props }) => <h2 className="chat-heading" {...props} />,
