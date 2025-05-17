@@ -80,7 +80,16 @@ const handleInputChange = (e) => {
   // ✅ モバイル画面切替用（追加ここから）
 const [mobileView, setMobileView] = useState("chat");  // "chat", "staff", "analysis"
 const [menuOpen, setMenuOpen] = useState(false);
-const isMobile = window.innerWidth <= 768;
+const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+useEffect(() => {
+  const handleResize = () => {
+    setIsMobile(window.innerWidth <= 768);
+  };
+  window.addEventListener("resize", handleResize);
+  return () => window.removeEventListener("resize", handleResize);
+}, []);
+
 // ✅ モバイル画面切替用（追加ここまで）
 
   const llm = new ChatOpenAI({
