@@ -591,27 +591,27 @@ return (
       <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
 
       <div className="admin-chat-box">
-{chatLog.map((msg, i) => {
-  const isAdmin = msg.sender === adminId;
-  const wrapperClass = isAdmin
-    ? "admin-chat-wrapper admin-chat-right"
-    : "admin-chat-wrapper admin-chat-left";
-  const senderLabel = isAdmin ? "あなた" : adminBot;
+        {chatLog.map((msg, i) => {
+          const isAdmin = msg.sender === adminId;
+          const wrapperClass = isAdmin
+            ? "admin-chat-wrapper admin-chat-right"
+            : "admin-chat-wrapper admin-chat-left";
+          const senderLabel = isAdmin ? "あなた" : adminBot;
 
-  return (
-    <div key={i} className={wrapperClass}>
-      <div className="admin-chat-message">
-        <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeRaw, rehypeHighlight]}
-        >
-          {formatReplyText(msg.text)}
-        </ReactMarkdown>
-      </div>
-    </div>
-  );
-})}
+          return (
+            <div key={i} className={wrapperClass}>
+              <div className="admin-chat-message">
+                <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                >
+                  {formatReplyText(msg.text)}
+                </ReactMarkdown>
+              </div>
+            </div>
+          );
+        })}
         <div ref={chatEndRef} />
       </div>
 
@@ -629,32 +629,31 @@ return (
     </div>
   )
 ) : (
-  // ✅ デスクトップでは常時表示
   <div className="admin-center">
     <h2>分身AIとの壁打ちチャット（{adminBot || "未設定"}）</h2>
 
     <div className="admin-chat-box">
-{chatLog.map((msg, i) => {
-  const isAdmin = msg.sender === adminId;
-  const wrapperClass = isAdmin
-    ? "admin-chat-wrapper admin-chat-right"
-    : "admin-chat-wrapper admin-chat-left";
-  const senderLabel = isAdmin ? "あなた" : adminBot;
+      {chatLog.map((msg, i) => {
+        const isAdmin = msg.sender === adminId;
+        const wrapperClass = isAdmin
+          ? "admin-chat-wrapper admin-chat-right"
+          : "admin-chat-wrapper admin-chat-left";
+        const senderLabel = isAdmin ? "あなた" : adminBot;
 
-  return (
-    <div key={i} className={wrapperClass}>
-      <div className="admin-chat-message">
-        <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          rehypePlugins={[rehypeRaw, rehypeHighlight]}
-        >
-          {formatReplyText(msg.text)}
-        </ReactMarkdown>
-      </div>
-    </div>
-  );
-})}
+        return (
+          <div key={i} className={wrapperClass}>
+            <div className="admin-chat-message">
+              <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw, rehypeHighlight]}
+              >
+                {formatReplyText(msg.text)}
+              </ReactMarkdown>
+            </div>
+          </div>
+        );
+      })}
       <div ref={chatEndRef} />
     </div>
 
@@ -672,102 +671,108 @@ return (
   </div>
 )}
 
-      {/* 右：社員ログ・ユーザーリスト */}
-      {isMobile ? (
-        mobileView === "staff" && (
-          <div className="admin-right">
-            <h4>📖 社員ログ</h4>
-            {selectedUser ? (
-              <div className="admin-log-box">
-                {messages.length > 0 ? (
-                  <div className="admin-chat-box">
-                    {messages.map((msg, i) => {
-                      const isEmployee = msg.sender === selectedUser.employeeId;
-                      const msgClass = isEmployee
-                        ? "admin-chat-message admin-chat-right"
-                        : "admin-chat-message admin-chat-left";
-                      const senderLabel = isEmployee ? selectedUser.name : adminBot;
-                      return (
-                        <div key={i} className={msgClass}>
-                          <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            rehypePlugins={[rehypeRaw, rehypeHighlight]}
-                          >
-                            {formatReplyText(msg.text)}
-                          </ReactMarkdown>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p>この社員のログはまだありません。</p>
-                )}
-              </div>
-            ) : (
-              <p>社員を選んでログを見る</p>
-            )}
+{/* 右：社員ログ・ユーザーリスト */}
+{isMobile ? (
+  mobileView === "staff" && (
+    <div className="admin-right">
+      <h4>📖 社員ログ</h4>
+      {selectedUser ? (
+        <div className="admin-log-box">
+          {messages.length > 0 ? (
+            <div className="admin-chat-box">
+              {messages.map((msg, i) => {
+                const isEmployee = msg.sender === selectedUser.employeeId;
+                const wrapperClass = isEmployee
+                  ? "admin-chat-wrapper admin-chat-right"
+                  : "admin-chat-wrapper admin-chat-left";
+                const senderLabel = isEmployee ? selectedUser.name : adminBot;
 
-            <div className="admin-user-list">
-              {users.map((user) => (
-                <div
-                  key={user.employeeId}
-                  onClick={() => handleSelectUser(user)}
-                  className={`admin-user ${selectedUser?.employeeId === user.employeeId ? "active" : ""}`}
-                >
-                  💬 {user.name}
-                </div>
-              ))}
-            </div>
-          </div>
-        )
-      ) : (
-        <div className="admin-right">
-          <h4>📖 社員ログ</h4>
-          {selectedUser ? (
-            <div className="admin-log-box">
-              {messages.length > 0 ? (
-                <div className="admin-chat-box">
-                  {messages.map((msg, i) => {
-                    const isEmployee = msg.sender === selectedUser.employeeId;
-                    const msgClass = isEmployee
-                      ? "admin-chat-message admin-chat-right"
-                      : "admin-chat-message admin-chat-left";
-                    const senderLabel = isEmployee ? selectedUser.name : adminBot;
-                    return (
-                      <div key={i} className={msgClass}>
-                        <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          rehypePlugins={[rehypeRaw, rehypeHighlight]}
-                        >
-                          {formatReplyText(msg.text)}
-                        </ReactMarkdown>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p>この社員のログはまだありません。</p>
-              )}
+                return (
+                  <div key={i} className={wrapperClass}>
+                    <div className="admin-chat-message">
+                      <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                      >
+                        {formatReplyText(msg.text)}
+                      </ReactMarkdown>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <p>社員を選んでログを見る</p>
+            <p>この社員のログはまだありません。</p>
           )}
-
-          <div className="admin-user-list">
-            {users.map((user) => (
-              <div
-                key={user.employeeId}
-                onClick={() => handleSelectUser(user)}
-                className={`admin-user ${selectedUser?.employeeId === user.employeeId ? "active" : ""}`}
-              >
-                💬 {user.name}
-              </div>
-            ))}
-          </div>
         </div>
+      ) : (
+        <p>社員を選んでログを見る</p>
       )}
+
+      <div className="admin-user-list">
+        {users.map((user) => (
+          <div
+            key={user.employeeId}
+            onClick={() => handleSelectUser(user)}
+            className={`admin-user ${selectedUser?.employeeId === user.employeeId ? "active" : ""}`}
+          >
+            💬 {user.name}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+) : (
+  <div className="admin-right">
+    <h4>📖 社員ログ</h4>
+    {selectedUser ? (
+      <div className="admin-log-box">
+        {messages.length > 0 ? (
+          <div className="admin-chat-box">
+            {messages.map((msg, i) => {
+              const isEmployee = msg.sender === selectedUser.employeeId;
+              const wrapperClass = isEmployee
+                ? "admin-chat-wrapper admin-chat-right"
+                : "admin-chat-wrapper admin-chat-left";
+              const senderLabel = isEmployee ? selectedUser.name : adminBot;
+
+              return (
+                <div key={i} className={wrapperClass}>
+                  <div className="admin-chat-message">
+                    <div className="chat-sender"><strong>{senderLabel}</strong>:</div>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      rehypePlugins={[rehypeRaw, rehypeHighlight]}
+                    >
+                      {formatReplyText(msg.text)}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p>この社員のログはまだありません。</p>
+        )}
+      </div>
+    ) : (
+      <p>社員を選んでログを見る</p>
+    )}
+
+    <div className="admin-user-list">
+      {users.map((user) => (
+        <div
+          key={user.employeeId}
+          onClick={() => handleSelectUser(user)}
+          className={`admin-user ${selectedUser?.employeeId === user.employeeId ? "active" : ""}`}
+        >
+          💬 {user.name}
+        </div>
+      ))}
+    </div>
+  </div>
+)}
     </div>
   </>
 );
